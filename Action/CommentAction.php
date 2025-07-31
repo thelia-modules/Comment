@@ -128,7 +128,7 @@ class CommentAction implements EventSubscriberInterface
             $comment
                 ->setRef($event->getRef())
                 ->setRefId($event->getRefId())
-                ->setCustomerId($event->getCustomerId())
+                ->setCustomerId($event->getUsername() ? null : $event->getCustomerId())
                 ->setUsername($event->getUsername())
                 ->setEmail($event->getEmail())
                 ->setLocale($event->getLocale())

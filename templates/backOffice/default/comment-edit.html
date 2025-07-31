@@ -73,6 +73,7 @@
                                 </div>
                                 {/form_field}
 
+                                {$customerId = $CUSTOMER_ID}
                                 {if $CUSTOMER_ID }
                                     {form_field form=$form field="customer_id"}
                                     <div class="form-group">
@@ -86,9 +87,16 @@
                                         {elseloop rel="customer"}
                                             <em>{intl d='comment.bo.default' l="Unknow customer %id" id="{$CUSTOMER_ID}" }</em>
                                         {/elseloop}
+                                        <button class="btn btn-default btn-xs"
+                                                title="{intl d='comment.bo.default' l='Update author name'}"
+                                                id="update_author_name">
+                                            <span class="glyphicon glyphicon-edit"></span>
+                                        </button>
                                     </div>
                                     {/form_field}
-                                {else}
+                                {/if}
+
+                                <div id="comment_username_field">
                                     {form_field form=$form field="username"}
                                     <div class="form-group">
                                         <label for="{$label_attr.for}">{$label}</label>
@@ -102,7 +110,8 @@
                                         <input type="email" name="{$name}" id="{$label_attr.for}" class="form-control" value="{$value}" {if $required} required{/if}>
                                     </div>
                                     {/form_field}
-                                {/if}
+                                </div>
+
 
                                 {form_field form=$form field="locale"}
                                 <div class="form-group">
@@ -175,4 +184,22 @@
 
 {block name="javascript-last-call"}
 {hook name="comment.edit-js" location="comment-edit-js" }
+    <script>
+        const customerId = {$customerId};
+        const updateAuthorNameButton = document.getElementById("update_author_name");
+        const commentUsernameField = document.getElementById("comment_username_field");
+
+        if (customerId){
+            commentUsernameField.style.display = 'none'
+        }
+
+        updateAuthorNameButton.addEventListener("click", function(e) {
+            e.preventDefault()
+            if (commentUsernameField.style.display === 'none'){
+                commentUsernameField.style.display = 'block'
+            }else {
+                commentUsernameField.style.display = 'none'
+            }
+        })
+    </script>
 {/block}
