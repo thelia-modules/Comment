@@ -26,6 +26,23 @@ use Thelia\Tools\URL;
  */
 class BackHook extends BaseHook
 {
+    /**
+     * Only the tools menu entry is declared for now: it renders no template. The hooks that
+     * render one (module.configuration, product.tab-content, content.tab-content, the JS
+     * ones) are declared once their Smarty templates have been ported to Twig for the
+     * default-twig back-office.
+     */
+    public static function getSubscribedHooks(): array
+    {
+        return [
+            'main.top-menu-tools' => [
+                [
+                    'type' => 'back',
+                    'method' => 'onMainTopMenuTools',
+                ],
+            ],
+        ];
+    }
 
     public function onModuleConfiguration(HookRenderEvent $event)
     {

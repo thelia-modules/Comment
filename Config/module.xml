@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module xmlns="http://thelia.net/schema/dic/module"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://thelia.net/schema/dic/module http://thelia.net/schema/dic/module/module-2_1.xsd">
+        xsi:schemaLocation="http://thelia.net/schema/dic/module http://thelia.net/schema/dic/module/module-2_2.xsd">
     <fullnamespace>Comment\Comment</fullnamespace>
     <descriptive locale="en_US">
         <title>Comment system</title>
@@ -14,11 +14,13 @@
         <language>fr_FR</language>
     </languages>
     <version>2.0.3</version>
-    <author>
-        <name>Julien Chanséaume</name>
-        <email>jchanseaume@openstudio.fr</email>
-    </author>
+    <authors>
+        <author>
+            <name>Julien Chanséaume</name>
+            <email>jchanseaume@openstudio.fr</email>
+        </author>
+    </authors>
     <type>classic</type>
-    <thelia>2.5.0</thelia>
+    <thelia>3.0.0</thelia>
     <stability>alpha</stability>
 </module>

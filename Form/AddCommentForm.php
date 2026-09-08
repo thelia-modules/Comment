@@ -111,7 +111,7 @@ class AddCommentForm extends BaseForm
         $this->form->get('success_url');
     }
 */
-    public static function getName()
+    public static function getName(): string
     {
         return 'admin_add_comment';
     }

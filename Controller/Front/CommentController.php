@@ -56,7 +56,7 @@ class CommentController extends BaseFrontController
 {
     const DEFAULT_VISIBLE = 0;
 
-    protected $useFallbackTemplate = true;
+    protected bool $useFallbackTemplate = true;
 
     /**
      * @Route("/get", name="_get", methods="GET")

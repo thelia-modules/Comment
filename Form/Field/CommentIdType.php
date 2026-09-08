@@ -14,6 +14,7 @@
 namespace Comment\Form\Field;
 
 use Comment\Model\CommentQuery;
+use Propel\Runtime\ActiveQuery\ModelCriteria;
 use Thelia\Core\Form\Type\Field\AbstractIdType;
 
 /**
@@ -28,7 +29,7 @@ class CommentIdType extends AbstractIdType
      *
      * Get the model query to check
      */
-    protected function getQuery()
+    protected function getQuery(): ModelCriteria
     {
         return new CommentQuery();
     }

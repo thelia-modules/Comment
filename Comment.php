@@ -10,13 +10,15 @@
 /*      file that was distributed with this source code.                             */
 /*************************************************************************************/
 
+declare(strict_types=1);
+
 namespace Comment;
 
 use Comment\Model\CommentQuery;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use Thelia\Core\Translation\Translator;
-use Thelia\Install\Database;
+use Thelia\Core\Install\Database;
 use Thelia\Model\ConfigQuery;
 use Thelia\Model\Lang;
 use Thelia\Model\LangQuery;
@@ -58,7 +60,7 @@ class Comment extends BaseModule
     const CONFIG_NOTIFY_ADMIN_NEW_COMMENT = true;
 
 
-    public function postActivation(ConnectionInterface $con = null): void
+    public function postActivation(?ConnectionInterface $con = null): void
     {
         // Config
         if (null === ConfigQuery::read('comment_activated')) {
@@ -176,7 +178,7 @@ class Comment extends BaseModule
         }
     }
 
-    public static function getConfig()
+    public static function getConfig(): array
     {
         $config = [
             'activated' => (
@@ -210,7 +212,7 @@ class Comment extends BaseModule
     public static function configureServices(ServicesConfigurator $servicesConfigurator): void
     {
         $servicesConfigurator->load(self::getModuleCode().'\\', __DIR__)
-            ->exclude([THELIA_MODULE_DIR . ucfirst(self::getModuleCode()). "/I18n/*"])
+            ->exclude([__DIR__.'/I18n/*'])
             ->autowire(true)
             ->autoconfigure(true);
     }
