@@ -36,6 +36,10 @@ use Comment\Form\CommentCreationForm;
 use Comment\Form\CommentModificationForm;
 use Comment\Form\ConfigurationForm;
 use Comment\Model\CommentQuery;
+use Comment\Repository\CommentRepository;
+use Comment\Service\BackOffice\CommentListFilters;
+use Comment\Service\BackOffice\CommentListPresenter;
+use Comment\Service\BackOffice\CommentStatusCatalog;
 use Exception;
 use Propel\Runtime\ActiveRecord\ActiveRecordInterface;
 use Propel\Runtime\Event\ActiveRecordEvent;
@@ -56,6 +60,7 @@ use Thelia\Core\Security\SecurityContext;
 use Thelia\Core\Template\ParserContext;
 use Thelia\Core\Translation\Translator;
 use Thelia\Form\BaseForm;
+use Thelia\Form\Exception\FormValidationException;
 use Thelia\Model\ConfigQuery;
 use Thelia\Model\MetaDataQuery;
 use Thelia\Tools\TokenProvider;
@@ -70,8 +75,11 @@ use Thelia\Tools\URL;
 class CommentController extends AbstractCrudController
 {
 
-    public function __construct()
-    {
+    public function __construct(
+        private readonly CommentRepository $commentRepository,
+        private readonly CommentListPresenter $commentListPresenter,
+        private readonly CommentStatusCatalog $commentStatusCatalog,
+    ) {
         parent::__construct(
             'comment',
             'created_reverse',
@@ -292,7 +300,13 @@ class CommentController extends AbstractCrudController
      */
     protected function renderListTemplate(string $currentOrder): Response
     {
-        return $this->render('comments', ['order' => $currentOrder]);
+        $request = $this->getRequest();
+        $filters = CommentListFilters::fromRequest($request);
+
+        return $this->render('comments', array_merge(
+            $this->commentListPresenter->present($filters, $request->getLocale()),
+            ['order' => $currentOrder],
+        ));
     }
 
     /**
@@ -300,10 +314,18 @@ class CommentController extends AbstractCrudController
      */
     protected function renderEditionTemplate(): Response
     {
+        $request = $this->getRequest();
+        $commentId = (int) $request->get('comment_id');
+        $comment = $this->commentRepository->findById($commentId);
+
         return $this->render(
             'comment-edit',
             [
-                'comment_id' => $this->getRequest()->get('comment_id')
+                'comment_id' => $commentId,
+                'comment' => null === $comment
+                    ? null
+                    : $this->commentListPresenter->row($comment, $request->getLocale()),
+                'statuses' => $this->commentStatusCatalog->all(),
             ]
         );
     }
@@ -326,7 +348,7 @@ class CommentController extends AbstractCrudController
      */
     protected function redirectToListTemplate(): Response|RedirectResponse
     {
-        return $this->generateRedirect(URL::getInstance()->absoluteUrl('/admin/module/comment/request-customer'));
+        return $this->generateRedirect(URL::getInstance()->absoluteUrl('/admin/module/comments'));
     }
 
 
@@ -461,22 +483,25 @@ class CommentController extends AbstractCrudController
                 'comment_notify_admin_new_comment',
                 $data['notify_admin_new_comment']
             );
+        } catch (FormValidationException $e) {
+            $message = $this->createStandardFormValidationErrorMessage($e);
         } catch (\Exception $e) {
             $message = $e->getMessage();
         }
+
         if ($message) {
             $form->setErrorMessage($message);
             $parserContext->addForm($form);
             $parserContext->setGeneralError($message);
-
-            return $this->render(
-                "module-configure",
-                ["module_code" => Comment::getModuleCode()]
-            );
+            $this->addFlash('danger', $message);
         }
 
-        return new RedirectResponse(
-            URL::getInstance()->absoluteUrl("/admin/module/" . Comment::getModuleCode())
+        // The Twig back-office has no "module-configure" template of its own: the module
+        // configuration screen is the core route, which renders this module's hook again.
+        return $this->generateRedirectFromRoute(
+            'admin.module.configure',
+            [],
+            ['module_code' => Comment::getModuleCode()]
         );
     }
 

@@ -1,0 +1,33 @@
+{%- block rating_widget -%}
+{% set fieldId = id ?? full_name %}
+<fieldset class="{{ ('RatingInput ' ~ attributes.render('class'))|tailwind_merge }}" {{ attributes.without('class') }}>
+    {% if label %}
+        <legend class="RatingInput-legend">
+            {{ label }}{% if required %} *{% endif %}
+            {% if help %}
+                <twig:Molecules:Tooltip:Help tooltip="{{ help }}" />
+            {% endif %}
+        </legend>
+    {% endif %}
+    <div class="RatingInput-stars">
+        {% for step in 1..max %}
+            <input
+                type="radio"
+                class="RatingInput-input"
+                name="{{ full_name }}"
+                id="{{ fieldId }}_{{ step }}"
+                value="{{ step }}"
+                {% if value is not empty and value == step %}checked{% endif %}
+                {% if required %}required{% endif %}
+            />
+            <label class="RatingInput-star" for="{{ fieldId }}_{{ step }}" aria-label="{{ 'rating'|trans}}">
+                <span class="RatingInput-icon">{{ ux_icon('star') }}</span>
+            </label>
+        {% endfor %}
+    </div>
+
+    {% if error %}
+        <p class="RatingInput-error">{{ error }}</p>
+    {% endif %}
+</fieldset>
+{%- endblock rating_widget -%}

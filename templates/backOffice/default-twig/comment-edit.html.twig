@@ -1,0 +1,155 @@
+{% extends '@BackOfficeDefaultTwig/base.html.twig' %}
+
+{% block title %}{{ 'Edit comment'|trans({}, 'comment.bo.default') }}{% endblock %}
+{% block body_testid %}comment-edit-page{% endblock %}
+
+{% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans({}, 'comment.bo.default') }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ path('comment_module_default') }}">{{ 'Comments'|trans({}, 'comment.bo.default') }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">
+                {{ 'Editing comment "%name"'|trans({'%name': comment_id}, 'comment.bo.default') }}
+            </li>
+        </ol>
+    </nav>
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid" data-testid="comment-edit-content">
+        {% if comment is null %}
+            <div class="alert alert-danger">
+                {{ 'Sorry, comment ID=%id was not found.'|trans({'%id': comment_id}, 'comment.bo.default') }}
+            </div>
+        {% else %}
+            {% set form = getForm('admin_comment_modification') %}
+            {% form_theme form with bo_form_themes only %}
+
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h1 class="h5 mb-0">
+                        {{ 'Edit comment %name'|trans({'%name': comment.id}, 'comment.bo.default') }}
+                    </h1>
+                    <span class="badge text-bg-{{ comment.status.css }}">{{ comment.status.label }}</span>
+                </div>
+
+                {{ form_start(form, {
+                    action: path('comment_module_save', {comment_id: comment.id}),
+                    method: 'POST',
+                }) }}
+
+                <div class="card-body">
+                    {{ form_errors(form) }}
+
+                    {# What the comment is attached to, and who wrote it, are not editable here:
+                       the update event reads all of them back (CommentController::bindFormData),
+                       so they travel hidden rather than being dropped from the form.
+                       `type` is a widget variable, not an attribute: passing it through `attr`
+                       leaves the field's own type in place and shows it. #}
+                    {{ form_widget(form.success_url, {value: path('comment_module_default')}) }}
+                    {{ form_widget(form.id, {value: comment.id, type: 'hidden', required: false}) }}
+                    {{ form_widget(form.customer_id, {type: 'hidden', required: false}) }}
+                    {{ form_widget(form.ref, {type: 'hidden', required: false}) }}
+                    {{ form_widget(form.ref_id, {type: 'hidden', required: false}) }}
+                    {{ form_widget(form.locale, {type: 'hidden', required: false}) }}
+                    {{ form_widget(form.abuse, {type: 'hidden', required: false}) }}
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="comment_status" class="form-label">{{ 'Status'|trans({}, 'comment.bo.default') }}</label>
+                                <select id="comment_status" name="{{ form.status.vars.full_name }}" class="form-select">
+                                    {% for status in statuses %}
+                                        <option value="{{ status.value }}" {{ comment.status.value == status.value ? 'selected' }}>
+                                            {{ status.label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                {% do form.status.setRendered %}
+                            </div>
+
+                            {% if comment.author.customerUrl %}
+                                <div class="mb-3">
+                                    <span class="form-label d-block">{{ 'Customer'|trans({}, 'comment.bo.default') }}</span>
+                                    <a href="{{ comment.author.customerUrl }}">{{ comment.author.name }}</a>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary ms-2"
+                                            data-comment-author-toggle
+                                            title="{{ 'Update author name'|trans({}, 'comment.bo.default') }}">
+                                        <i class="bi bi-pencil" aria-hidden="true"></i>
+                                    </button>
+                                    {# Filling in an author name detaches the comment from its
+                                       customer account (Comment\Action\CommentAction::update). #}
+                                </div>
+                            {% endif %}
+
+                            <div id="comment_author_fields" {{ comment.author.customerUrl ? 'hidden' }}>
+                                {{ form_row(form.username) }}
+                                {{ form_row(form.email) }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            {{ form_row(form.title) }}
+
+                            <div class="mb-3">
+                                <label for="comment_content" class="form-label">{{ 'Content'|trans({}, 'comment.bo.default') }}</label>
+                                <textarea id="comment_content"
+                                          name="{{ form.content.vars.full_name }}"
+                                          class="form-control"
+                                          rows="6">{{ form.content.vars.value }}</textarea>
+                                {{ form_errors(form.content) }}
+                                {% do form.content.setRendered %}
+                            </div>
+
+                            {{ form_row(form.rating) }}
+
+                            <div class="form-check mb-3">
+                                <input type="hidden" name="{{ form.verified.vars.full_name }}" value="0">
+                                <input type="checkbox"
+                                       id="comment_verified"
+                                       class="form-check-input"
+                                       name="{{ form.verified.vars.full_name }}"
+                                       value="1"
+                                       {{ comment.verified ? 'checked' }}>
+                                <label class="form-check-label" for="comment_verified">
+                                    {{ 'Verified'|trans({}, 'comment.bo.default') }}
+                                </label>
+                                {% do form.verified.setRendered %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-muted small mb-0">
+                        {{ 'Comment created on %date_create. Last modification: %date_change'|trans({
+                            '%date_create': comment.createdAt ? comment.createdAt|date('d/m/Y H:i') : '',
+                            '%date_change': comment.updatedAt ? comment.updatedAt|date('d/m/Y H:i') : '',
+                        }, 'comment.bo.default') }}
+                    </p>
+                </div>
+
+                <div class="card-footer d-flex gap-2">
+                    <button type="submit" class="btn btn-success" data-testid="comment-save">
+                        <i class="bi bi-save" aria-hidden="true"></i> {{ 'Save'|trans }}
+                    </button>
+                    <a href="{{ path('comment_module_default') }}" class="btn btn-outline-secondary">{{ 'Cancel'|trans }}</a>
+                </div>
+
+                {{ form_end(form) }}
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        (function () {
+            const toggle = document.querySelector('[data-comment-author-toggle]');
+            const fields = document.getElementById('comment_author_fields');
+
+            if (toggle && fields) {
+                toggle.addEventListener('click', function () {
+                    fields.hidden = !fields.hidden;
+                });
+            }
+        })();
+    </script>
+{% endblock %}

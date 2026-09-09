@@ -1,0 +1,113 @@
+{# The theme's form theme for every field, plus the module's own blocks for the star rating
+   and for the textarea, which the theme renders two rows high. #}
+{% form_theme form with flexy_form_themes|merge(['@CommentModule/form/comment_form_theme.html.twig']) only %}
+
+{# Read out here: `this` rescopes inside the nested <twig:> components. #}
+{% set maxRating = this.maxRating %}
+{% set labels = this.labels %}
+
+{# Geometry lives in the module's own stylesheet (assets/comment.css, linked by the theme hook):
+   utility classes only this module uses are not in the theme's Tailwind sources, so they would
+   never be generated. What is kept from the theme is its type scale and its colours, which the
+   theme uses everywhere and which are what makes the block look like the rest of the shop. #}
+<section id="Comments" {{ attributes.defaults({class: 'Comment container-l'}) }}>
+    <header class="Comment-header">
+        <h2 class="h2 text-black">{{ labels.title }}</h2>
+        {% if this.total > 0 %}
+            <p class="paragraph-4 text-grey">
+                {% if this.averageRating is not null %}
+                    <span class="Comment-average">{{ labels.total }} {{ this.averageRating }}/{{ maxRating }}</span>
+                {% endif %}
+                <span>({{ this.total }} {{ this.total > 1 ? labels.ratings : labels.rating }})</span>
+            </p>
+        {% endif %}
+    </header>
+
+    <ul class="Comment-list">
+        {% for comment in this.comments %}
+            <li>
+                <twig:Organisms:ReviewCard:Base
+                    author="{{ comment.author }}"
+                    title="{{ comment.title }}"
+                    review="{{ comment.content }}"
+                    date="{{ comment.date ? comment.date|date('d/m/Y') : '' }}"
+                    note="{{ comment.rating }}"
+                    maxNote="{{ maxRating }}"
+                    class="Comment-card bg-lightest"
+                />
+            </li>
+        {% else %}
+            <li class="paragraph-3 text-grey">{{ labels.empty }}</li>
+        {% endfor %}
+    </ul>
+
+    {% if this.hasMore %}
+        <div class="Comment-more">
+            <twig:Molecules:Button:Base
+                text="{{ labels.more }}"
+                type="button"
+                color="secondary"
+                icon_right="chevron-down"
+                {{ ...stimulus_action('live', 'action', null, {action: 'showMore'}) }}
+            />
+        </div>
+    {% endif %}
+
+    {% if this.feedback %}
+        <twig:Molecules:SnackBar:Base variant="success" withIcon text="{{ this.feedback }}" class="Comment-notice" />
+    {% endif %}
+
+    {% if this.error %}
+        <twig:Molecules:SnackBar:Base variant="error" withIcon text="{{ this.error }}" class="Comment-notice" />
+    {% endif %}
+
+    {% if this.definition.canPost %}
+        <div class="Comment-form">
+            <h3 class="h4 text-black Comment-formTitle">{{ labels.add }}</h3>
+
+            {{ form_start(form, {
+                attr: {
+                    class: 'Comment-formFields',
+                    'data-action': 'live#action:prevent',
+                    'data-live-action-param': 'save',
+                },
+            }) }}
+
+            {# The Flexy form theme renders nothing for `form_errors`: the errors carried by the
+               form itself rather than by one of its fields are shown here. #}
+            {% for formError in form.vars.errors %}
+                <twig:Molecules:SnackBar:Base variant="error" withIcon text="{{ formError.message }}" />
+            {% endfor %}
+
+            {% if this.definition.customerId is null %}
+                <div class="Comment-formRow">
+                    {{ form_row(form.username) }}
+                    {{ form_row(form.email) }}
+                </div>
+            {% else %}
+                {% do form.username.setRendered %}
+                {% do form.email.setRendered %}
+            {% endif %}
+
+            {{ form_row(form.title) }}
+            {{ form_row(form.content, {attr: {rows: 5}}) }}
+
+            {% if this.definition.hasRating %}
+                {{ form_row(form.rating) }}
+            {% else %}
+                {% do form.rating.setRendered %}
+            {% endif %}
+
+            {# The element the comment is attached to travels in the component props, and the
+               action sets it again server-side: no input to show. #}
+            {% do form.ref.setRendered %}
+            {% do form.ref_id.setRendered %}
+
+            <twig:Molecules:Button:Base text="{{ labels.send }}" type="submit" class="Comment-submit" />
+
+            {{ form_end(form) }}
+        </div>
+    {% elseif this.definition.message %}
+        <twig:Molecules:SnackBar:Base variant="informative" withIcon text="{{ this.definition.message }}" class="Comment-notice" />
+    {% endif %}
+</section>

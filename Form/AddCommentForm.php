@@ -23,7 +23,9 @@
 namespace Comment\Form;
 
 use Comment\Comment;
+use Comment\Form\Field\RatingType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
+use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Constraints\GreaterThan;
@@ -31,6 +33,7 @@ use Symfony\Component\Validator\Constraints\GreaterThanOrEqual;
 use Symfony\Component\Validator\Constraints\LessThanOrEqual;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Thelia\Form\BaseForm;
+use Thelia\Model\ConfigQuery;
 
 class AddCommentForm extends BaseForm
 {
@@ -41,6 +44,12 @@ class AddCommentForm extends BaseForm
 
     protected function buildForm()
     {
+        $maxRating = (int) ConfigQuery::read('comment_max_rating', RatingType::DEFAULT_MAX);
+
+        if ($maxRating < 1) {
+            $maxRating = RatingType::DEFAULT_MAX;
+        }
+
         $this->formBuilder
             ->add('username', TextType::class, [
                 'constraints' => [
@@ -68,7 +77,7 @@ class AddCommentForm extends BaseForm
                     'for' => 'title'
                 ]
             ])
-            ->add('content', TextType::class, [
+            ->add('content', TextareaType::class, [
                 'label' => $this->trans('Content'),
                 'required' => false,
                 'label_attr' => [
@@ -93,11 +102,12 @@ class AddCommentForm extends BaseForm
                     'for' => 'ref_id'
                 ]
             ])
-            ->add('rating', TextType::class, [
+            ->add('rating', RatingType::class, [
                 'constraints' => [
                     new GreaterThanOrEqual(['value' => 0, 'groups' => ['rating']]),
-                    new LessThanOrEqual(['value' => 5, 'groups' => ['rating']])
+                    new LessThanOrEqual(['value' => $maxRating, 'groups' => ['rating']])
                 ],
+                'max' => $maxRating,
                 'required' => false,
                 'label' => $this->trans('Rating'),
                 'label_attr' => [

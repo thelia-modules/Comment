@@ -1,0 +1,63 @@
+{#
+ # The blocks this module needs on top of the theme's form theme.
+ #
+ # Shipped by the module rather than by the theme's form theme: a shop only has to keep the
+ # Comment hook in its product page, nothing to add to its own form theme. Merged onto the
+ # theme's list by the component template, so every other field still renders the theme's way.
+ #
+ # The markup is written out here instead of calling a Twig component: components live in the
+ # theme's namespace, and the point of this file is that the theme carries nothing for it.
+ #}
+{%- block rating_widget -%}
+    {% set steps = max|default(5) %}
+    <fieldset class="RatingInput">
+        {% if label %}
+            {# A <legend> has to be the fieldset's first child. #}
+            <legend class="RatingInput-legend">{{ label }}{% if required %} *{% endif %}</legend>
+        {% endif %}
+
+        {# The radios are siblings of the stars, not children: the star a radio labels is the one
+           right after it, which is what the CSS needs to fill the row up to the selected step. #}
+        <div class="RatingInput-stars">
+            {% for step in 1..steps %}
+                <input
+                    type="radio"
+                    class="RatingInput-input"
+                    name="{{ full_name }}"
+                    id="{{ id }}_{{ step }}"
+                    value="{{ step }}"
+                    {% if value is not empty and value == step %}checked{% endif %}
+                    {% if required %}required{% endif %}
+                />
+                <label class="RatingInput-star" for="{{ id }}_{{ step }}">
+                    <span class="RatingInput-icon">{{ ux_icon('star') }}</span>
+                    <span class="RatingInput-name">{{ step }}/{{ steps }}</span>
+                </label>
+            {% endfor %}
+        </div>
+
+        {% if errors|length %}
+            <p class="RatingInput-error">{{ errors|first.message }}</p>
+        {% endif %}
+    </fieldset>
+{%- endblock rating_widget -%}
+
+{#
+ # The theme renders every textarea two rows high and offers no way to say otherwise. A review
+ # body needs more room, so the block is repeated here with `rows` forwarded from the field's
+ # attributes. Scoped to this form: the shop's other textareas keep the theme's rendering.
+ #}
+{%- block textarea_widget -%}
+    {{ component('Fields:TextArea:Base', {
+        label: label,
+        name: full_name,
+        id: id,
+        rows: attr.rows|default(2),
+        value: value,
+        placeholder: placeholder ?? attr.placeholder ?? null,
+        error: errors|first.message|default(false),
+        disabled: disabled,
+        required: required,
+        help: help ?? null,
+    }) }}
+{%- endblock textarea_widget -%}

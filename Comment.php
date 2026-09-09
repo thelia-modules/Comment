@@ -1,4 +1,5 @@
 <?php
+
 /*************************************************************************************/
 /*      This file is part of the Thelia package.                                     */
 /*                                                                                   */
@@ -35,30 +36,31 @@ use Thelia\Module\BaseModule;
  */
 class Comment extends BaseModule
 {
-    const MESSAGE_DOMAIN = "comment";
-    const MESSAGE_DOMAIN_EMAIL = "comment.email.default";
+    public const MESSAGE_DOMAIN = "comment";
+    public const MESSAGE_DOMAIN_EMAIL = "comment.email.default";
 
     /**  Use comment */
-    const CONFIG_ACTIVATED = 1;
+    public const CONFIG_ACTIVATED = 1;
 
     /**  Use moderation */
-    const CONFIG_MODERATE = 1;
+    public const CONFIG_MODERATE = 1;
 
     /** Allowed ref */
-    const CONFIG_REF_ALLOWED = 'product,content';
+    public const CONFIG_REF_ALLOWED = 'product,content';
 
     /** Only customers are abled to post comment */
-    const CONFIG_ONLY_CUSTOMER = 1;
+    public const CONFIG_ONLY_CUSTOMER = 1;
 
     /** Allow only verified customer (for product, customers that have bought the product) */
-    const CONFIG_ONLY_VERIFIED = 1;
+    public const CONFIG_ONLY_VERIFIED = 1;
 
     /** request customer comment, x days after an order */
-    const CONFIG_REQUEST_CUSTOMMER_TTL = 15;
+    public const CONFIG_REQUEST_CUSTOMMER_TTL = 15;
 
     /** Send an email notification to the store admins when a new comment is posted */
-    const CONFIG_NOTIFY_ADMIN_NEW_COMMENT = true;
+    public const CONFIG_NOTIFY_ADMIN_NEW_COMMENT = true;
 
+    public const CONFIG_MAX_RATING = 5;
 
     public function postActivation(?ConnectionInterface $con = null): void
     {
@@ -88,7 +90,11 @@ class Comment extends BaseModule
         }
 
         if (null === ConfigQuery::read('comment_notify_admin_new_comment')) {
-            ConfigQuery::write('comment_notify_admin_new_comment', Comment::CONFIG_NOTIFY_ADMIN_NEW_COMMENT);
+            ConfigQuery::write('comment_notify_admin_new_comment', Comment::CONFIG_MAX_RATING);
+        }
+
+        if (null === ConfigQuery::read('comment_max_rating')) {
+            ConfigQuery::write('comment_max_rating', Comment::CONFIG_MAX_RATING);
         }
 
         // Schema
@@ -202,6 +208,10 @@ class Comment extends BaseModule
             ),
             'notify_admin_new_comment' => (
                 (int)ConfigQuery::read('comment_notify_admin_new_comment', self::CONFIG_NOTIFY_ADMIN_NEW_COMMENT)
+                    === 1
+            ),
+            'max_rating' => (
+                (int)ConfigQuery::read('comment_max_rating', self::CONFIG_MAX_RATING)
                     === 1
             ),
         ];

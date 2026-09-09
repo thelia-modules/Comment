@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /*************************************************************************************/
 /*      This file is part of the Thelia package.                                     */
 /*                                                                                   */
@@ -10,101 +13,131 @@
 /*      file that was distributed with this source code.                             */
 /*************************************************************************************/
 
-
 namespace Comment\Hook;
 
 use Comment\Comment;
+use Comment\Model\Comment as CommentModel;
+use Comment\Service\BackOffice\CommentListFilters;
+use Comment\Service\BackOffice\CommentListPresenter;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Core\Event\Hook\HookRenderBlockEvent;
 use Thelia\Core\Event\Hook\HookRenderEvent;
 use Thelia\Core\Hook\BaseHook;
+use Thelia\Core\Template\Parser\ParserResolver;
+use Thelia\Model\MetaDataQuery;
 use Thelia\Tools\URL;
 
 /**
- * Class BackHook
- * @package Comment\Hook
+ * Back-office rendering, in the default-twig admin.
+ *
+ * The JavaScript hooks the Smarty back-office declared (main.footer-js, product.edit-js,
+ * content.edit-js, which injected assets/js/comment.js) are gone: the Twig templates carry
+ * the few lines of script they need.
+ *
  * @author Julien Chanséaume <jchanseaume@openstudio.fr>
  */
 class BackHook extends BaseHook
 {
-    /**
-     * Only the tools menu entry is declared for now: it renders no template. The hooks that
-     * render one (module.configuration, product.tab-content, content.tab-content, the JS
-     * ones) are declared once their Smarty templates have been ported to Twig for the
-     * default-twig back-office.
-     */
+    private const TAB_COMMENT_LIMIT = 10;
+
+    public function __construct(
+        private readonly CommentListPresenter $commentListPresenter,
+        private readonly RequestStack $requestStack,
+        ?EventDispatcherInterface $dispatcher = null,
+        ?ParserResolver $parserResolver = null,
+    ) {
+        parent::__construct($dispatcher, $parserResolver);
+    }
+
     public static function getSubscribedHooks(): array
     {
         return [
+            'module.configuration' => [
+                ['type' => 'back', 'method' => 'onModuleConfiguration'],
+            ],
             'main.top-menu-tools' => [
-                [
-                    'type' => 'back',
-                    'method' => 'onMainTopMenuTools',
-                ],
+                ['type' => 'back', 'method' => 'onMainTopMenuTools'],
+            ],
+            'product.tab-content' => [
+                ['type' => 'back', 'method' => 'onProductTabContent'],
+            ],
+            'content.tab-content' => [
+                ['type' => 'back', 'method' => 'onContentTabContent'],
             ],
         ];
     }
 
-    public function onModuleConfiguration(HookRenderEvent $event)
+    public function onModuleConfiguration(HookRenderEvent $event): void
     {
-        $event->add($this->render("configuration.html"));
+        $event->add($this->render('Comment/module_configuration.html.twig'));
     }
 
     /**
-     * Add a new entry in the admin tools menu
-     *
-     * should add to event a fragment with fields : id,class,url,title
-     *
-     * @param HookRenderBlockEvent $event
+     * Adds an entry in the admin tools menu.
      */
-    public function onMainTopMenuTools(HookRenderBlockEvent $event)
+    public function onMainTopMenuTools(HookRenderBlockEvent $event): void
     {
         $event->add(
             [
                 'id' => 'tools_menu_comment',
                 'class' => '',
                 'url' => URL::getInstance()->absoluteUrl('/admin/module/comments'),
-                'title' => $this->trans('Comments', [], Comment::MESSAGE_DOMAIN)
+                'title' => $this->trans('Comments', [], Comment::MESSAGE_DOMAIN),
             ]
         );
     }
 
-    /**
-     * Add module-wide javascript.
-     *
-     * @param HookRenderEvent $event
-     */
-    public function onMainFooterJs(HookRenderEvent $event)
-    {
-        $event->add($this->addJS('assets/js/comment.js'));
-    }
-
-    public function onProductTabContent(HookRenderEvent $event)
+    public function onProductTabContent(HookRenderEvent $event): void
     {
         $this->onTabContent($event, 'product');
     }
 
-    public function onContentTabContent(HookRenderEvent $event)
+    public function onContentTabContent(HookRenderEvent $event): void
     {
         $this->onTabContent($event, 'content');
     }
 
-    protected function onTabContent(HookRenderEvent $event, $ref)
+    protected function onTabContent(HookRenderEvent $event, string $ref): void
     {
-        $event->add(
-            $this->render(
-                'tab-content.html',
+        $refId = $this->resolveRefId($event, $ref);
+        $locale = $this->requestStack->getCurrentRequest()?->getLocale() ?? 'en_US';
+
+        $filters = new CommentListFilters(ref: $ref, refId: $refId, limit: self::TAB_COMMENT_LIMIT);
+
+        $event->add($this->render(
+            'Comment/tab-content.html.twig',
+            array_merge(
+                $this->commentListPresenter->present($filters, $locale),
                 [
                     'ref' => $ref,
-                    'id' => $event->getArgument('id')
+                    'id' => $refId,
+                    'activated' => (string) MetaDataQuery::getVal(
+                        CommentModel::META_KEY_ACTIVATED,
+                        $ref,
+                        $refId,
+                        '-1'
+                    ),
                 ]
             )
-        );
+        ));
     }
 
-    public function onJsTabContent(HookRenderEvent $event)
+    /**
+     * The Twig back-office names the hook argument after the entity: product.tab-content
+     * passes {product: id}, content.tab-content passes {content: id, content_id: id}. The
+     * Smarty back-office passed {id: id}, which is kept as a last resort.
+     */
+    private function resolveRefId(HookRenderEvent $event, string $ref): int
     {
-        $event->add(
-            $this->addJS('assets/js/comment.js')
-        );
+        foreach ([$ref, $ref.'_id', 'id'] as $key) {
+            $value = $event->getArgument($key);
+
+            if (null !== $value && '' !== $value) {
+                return (int) $value;
+            }
+        }
+
+        return 0;
     }
 }
