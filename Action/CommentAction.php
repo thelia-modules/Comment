@@ -101,6 +101,20 @@ class CommentAction implements EventSubscriberInterface
         $this->commentRepository = $commentRepository;
     }
 
+    /**
+     * Normalize a value on its way into the comment table.
+     *
+     * `verified`, `status`, `rating` and `abuse` are TINYINT / INTEGER columns, so Propel
+     * generates `?int` setters. The events carry booleans (`Twig\Comment::save()` and
+     * `Controller\Back\CommentController::publishAction()` both pass `true`), which
+     * `declare(strict_types=1)` rejects outright instead of coercing. Convert here, at the
+     * boundary, and keep null as null: the columns are nullable and carry no default.
+     */
+    private static function toColumnInt(bool|int|string|null $value): ?int
+    {
+        return null === $value ? null : (int) $value;
+    }
+
     public function create(CommentCreateEvent $event): void
     {
         $comment = new Comment();
@@ -114,10 +128,10 @@ class CommentAction implements EventSubscriberInterface
             ->setLocale($event->getLocale())
             ->setTitle($event->getTitle())
             ->setContent($event->getContent())
-            ->setStatus($event->getStatus())
-            ->setVerified($event->isVerified())
-            ->setRating($event->getRating())
-            ->setAbuse($event->getAbuse())
+            ->setStatus(self::toColumnInt($event->getStatus()))
+            ->setVerified(self::toColumnInt($event->isVerified()))
+            ->setRating(self::toColumnInt($event->getRating()))
+            ->setAbuse(self::toColumnInt($event->getAbuse()))
             ->save();
 
         $event->setComment($comment);
@@ -142,10 +156,10 @@ class CommentAction implements EventSubscriberInterface
                 ->setLocale($event->getLocale())
                 ->setTitle($event->getTitle())
                 ->setContent($event->getContent())
-                ->setStatus($event->getStatus())
-                ->setVerified($event->isVerified())
-                ->setRating($event->getRating())
-                ->setAbuse($event->getAbuse())
+                ->setStatus(self::toColumnInt($event->getStatus()))
+                ->setVerified(self::toColumnInt($event->isVerified()))
+                ->setRating(self::toColumnInt($event->getRating()))
+                ->setAbuse(self::toColumnInt($event->getAbuse()))
                 ->save();
             $event->setComment($comment);
 
@@ -216,7 +230,9 @@ class CommentAction implements EventSubscriberInterface
                 $rating = $query->findOne();
 
                 if (null !== $rating) {
-                    $rating = round($rating, 2);
+                    // select() on a computed column hands back the raw driver value, a string
+                    // for an SQL AVG(): round() takes int|float only under strict types.
+                    $rating = round((float) $rating, 2);
 
                     $event->setRating($rating);
 

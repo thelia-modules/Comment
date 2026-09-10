@@ -53,4 +53,31 @@ final readonly class CommentDefinition
     {
         return $this->event->getCustomer()?->getId();
     }
+
+    /**
+     * The name a signed-in customer's comment is published under: first name plus the initial
+     * of the last name, so the shop shows "Jean D." instead of the full identity. Null when the
+     * visitor is anonymous, or when the account carries no name at all.
+     */
+    public function customerDisplayName(): ?string
+    {
+        $customer = $this->event->getCustomer();
+
+        if (null === $customer) {
+            return null;
+        }
+
+        $firstname = trim((string) $customer->getFirstname());
+        $lastname = trim((string) $customer->getLastname());
+
+        if ('' === $lastname) {
+            return '' === $firstname ? null : $firstname;
+        }
+
+        if ('' === $firstname) {
+            return $lastname;
+        }
+
+        return $firstname.' '.mb_strtoupper(mb_substr($lastname, 0, 1)).'.';
+    }
 }

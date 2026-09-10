@@ -304,9 +304,10 @@ class Comment extends BaseModule
                 (int)ConfigQuery::read('comment_notify_admin_new_comment', self::CONFIG_NOTIFY_ADMIN_NEW_COMMENT)
                     === 1
             ),
+            // The maximum rating is a scale (5 by default), not a flag: comparing it to 1
+            // returned false for every shop whose scale was not exactly 1.
             'max_rating' => (
-                (int)ConfigQuery::read('comment_max_rating', self::CONFIG_MAX_RATING)
-                    === 1
+                (int) ConfigQuery::read('comment_max_rating', self::CONFIG_MAX_RATING)
             ),
         ];
 

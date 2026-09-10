@@ -225,6 +225,10 @@ class Comment
 
         if (null !== $definition->customerId()) {
             $event->setCustomerId($definition->customerId());
+            // The username and email fields are not rendered for a signed-in customer, so the
+            // form submits nothing for them: the author has to come from the account, and it
+            // overwrites whatever bindForm() left behind.
+            $event->setUsername($definition->customerDisplayName());
         }
 
         $this->eventDispatcher->dispatch($event, CommentEvents::COMMENT_CREATE);
