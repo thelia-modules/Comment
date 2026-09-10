@@ -90,7 +90,7 @@ class Comment extends BaseModule
         }
 
         if (null === ConfigQuery::read('comment_notify_admin_new_comment')) {
-            ConfigQuery::write('comment_notify_admin_new_comment', Comment::CONFIG_MAX_RATING);
+            ConfigQuery::write('comment_notify_admin_new_comment', Comment::CONFIG_NOTIFY_ADMIN_NEW_COMMENT);
         }
 
         if (null === ConfigQuery::read('comment_max_rating')) {
@@ -122,8 +122,12 @@ class Comment extends BaseModule
             $message = new Message();
             $message
                 ->setName('comment_request_customer')
+                // The stored names carry no .twig: TwigParser resolves ".html" to ".html.twig"
+                // and ".txt" to ".txt.twig", so these keep working after the Twig port.
                 ->setHtmlTemplateFileName('request-customer-comment.html')
-                ->setHtmlLayoutFileName('')
+                // Wrapping in the shop's own email chrome, through Thelia's layout mechanism:
+                // the layout renders {{ message_body }}, so the template stays layout-agnostic.
+                ->setHtmlLayoutFileName('email-layout.html.twig')
                 ->setTextTemplateFileName('request-customer-comment.txt')
                 ->setTextLayoutFileName('')
                 ->setSecured(0);
@@ -137,7 +141,12 @@ class Comment extends BaseModule
                     Translator::getInstance()->trans('Request customer comment', [], self::MESSAGE_DOMAIN)
                 );
                 $message->setSubject(
-                    Translator::getInstance()->trans('', [], self::MESSAGE_DOMAIN)
+                    Translator::getInstance()->trans(
+                        'Share your opinion on your recent order',
+                        [],
+                        self::MESSAGE_DOMAIN_EMAIL,
+                        $locale
+                    )
                 );
             }
 
@@ -150,7 +159,7 @@ class Comment extends BaseModule
             $message
                 ->setName('new_comment_notification_admin')
                 ->setHtmlTemplateFileName('new-comment-notification-admin.html')
-                ->setHtmlLayoutFileName('')
+                ->setHtmlLayoutFileName('email-layout.html.twig')
                 ->setTextTemplateFileName('new-comment-notification-admin.txt')
                 ->setTextLayoutFileName('')
                 ->setSecured(0);
@@ -175,8 +184,10 @@ class Comment extends BaseModule
                     self::MESSAGE_DOMAIN_EMAIL,
                     $locale
                 );
-                $subject = str_replace('%ref_type_title', '{$ref_type_title|lower}', $subject);
-                $subject = str_replace('%ref_title', '{$ref_title}', $subject);
+                // The subject is compiled as an inline template by the parser: Twig placeholders
+                // now, the Smarty ones went out with the rest of the port.
+                $subject = str_replace('%ref_type_title', '{{ ref_type_title|lower }}', $subject);
+                $subject = str_replace('%ref_title', '{{ ref_title }}', $subject);
                 $message->setSubject($subject);
             }
 

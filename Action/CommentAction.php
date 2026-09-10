@@ -1,4 +1,5 @@
 <?php
+
 /*************************************************************************************/
 /*                                                                                   */
 /*      Thelia	                                                                     */
@@ -37,7 +38,7 @@ use Comment\Events\CommentUpdateEvent;
 use Comment\Exception\InvalidDefinitionException;
 use Comment\Model\Comment;
 use Comment\Model\CommentQuery;
-use Comment\Model\Map\CommentTableMap;
+use Comment\Repository\CommentRepository;
 use DateInterval;
 use DateTime;
 use Propel\Runtime\ActiveQuery\Criteria;
@@ -85,12 +86,16 @@ class CommentAction implements EventSubscriberInterface
     /** @var null|EventDispatcherInterface */
     protected $dispatcher = null;
 
-    public function __construct(TranslatorInterface $translator, ParserInterface $parser, MailerFactory $mailer, EventDispatcherInterface $dispatcher)
+    /** @var null|CommentRepository */
+    protected $commentRepository = null;
+
+    public function __construct(TranslatorInterface $translator, ParserInterface $parser, MailerFactory $mailer, EventDispatcherInterface $dispatcher, CommentRepository $commentRepository)
     {
         $this->translator = $translator;
         $this->parser = $parser;
         $this->mailer = $mailer;
         $this->dispatcher = $dispatcher;
+        $this->commentRepository = $commentRepository;
     }
 
     public function create(CommentCreateEvent $event)
@@ -425,7 +430,6 @@ class CommentAction implements EventSubscriberInterface
         $nbDays = $config["request_customer_ttl"];
 
         if (0 !== $nbDays) {
-
             $endDate = new DateTime('NOW');
             $endDate->setTime(0, 0, 0);
             $endDate->sub(new DateInterval('P' . $nbDays . 'D'));
@@ -434,8 +438,8 @@ class CommentAction implements EventSubscriberInterface
             $startDate->sub(new DateInterval('P1D'));
 
             $pseJoin = new Join(
-                OrderProductTableMap::PRODUCT_SALE_ELEMENTS_ID,
-                ProductSaleElementsTableMap::ID,
+                OrderProductTableMap::COL_PRODUCT_SALE_ELEMENTS_ID,
+                ProductSaleElementsTableMap::COL_ID,
                 Criteria::INNER_JOIN
             );
 
@@ -443,12 +447,12 @@ class CommentAction implements EventSubscriberInterface
                 ->useOrderQuery()
                 ->filterByInvoiceDate($startDate, Criteria::GREATER_EQUAL)
                 ->filterByInvoiceDate($endDate, Criteria::LESS_THAN)
-                ->addAsColumn('customerId', OrderTableMap::CUSTOMER_ID)
-                ->addAsColumn('orderId', OrderTableMap::ID)
+                ->addAsColumn('customerId', OrderTableMap::COL_CUSTOMER_ID)
+                ->addAsColumn('orderId', OrderTableMap::COL_ID)
                 ->endUse()
                 ->addJoinObject($pseJoin)
-                ->addAsColumn('pseId', OrderProductTableMap::PRODUCT_SALE_ELEMENTS_ID)
-                ->addAsColumn('productId', ProductSaleElementsTableMap::PRODUCT_ID)
+                ->addAsColumn('pseId', OrderProductTableMap::COL_PRODUCT_SALE_ELEMENTS_ID)
+                ->addAsColumn('productId', ProductSaleElementsTableMap::COL_PRODUCT_ID)
                 ->select(
                     [
                         'customerId',
@@ -482,33 +486,9 @@ class CommentAction implements EventSubscriberInterface
 
             $customerIds = array_keys($customerProducts);
 
-            // check if comments already exists
-            $comments = CommentQuery::create()
-                ->filterByCustomerId($customerIds)
-                ->filterByRef(MetaData::PRODUCT_KEY)
-                ->addAsColumn('customerId', CommentTableMap::CUSTOMER_ID)
-                ->addAsColumn('productId', CommentTableMap::REF_ID)
-                ->select(
-                    [
-                        'customerId',
-                        'productId'
-                    ]
-                )
-                ->find()
-                ->toArray();
-
-            $customerComments = array_reduce(
-                $comments,
-                function ($result, $item) {
-
-                    if (!array_key_exists($item['customerId'], $result)) {
-                        $result[$item['customerId']] = [];
-                    }
-                    $result[$item['customerId']][] = $item['productId'];
-
-                    return $result;
-                },
-                []
+            // Who already said what they think, so they are not asked twice.
+            $customerComments = $this->commentRepository->findCommentedProductIdsByCustomer(
+                array_map('intval', $customerIds)
             );
 
             foreach ($customerIds as $customerId) {
@@ -538,6 +518,35 @@ class CommentAction implements EventSubscriberInterface
         }
     }
 
+    /**
+     * Translate an email's strings up front, in the module's own catalogue.
+     *
+     * Twig's |trans reaches the Symfony translator, which does not carry a module's I18n/*.php
+     * files: on the front office it answers with the key, so an email posted by a visitor would
+     * go out in English whatever the locale. The back-office decorator only routes module
+     * domains on an admin request, so it cannot be relied on either. Thelia's own translator,
+     * injected here, is the one that reads those catalogues.
+     *
+     * @param array<string, array{0: string, 1: array<string, mixed>}> $strings id and parameters, by label key
+     *
+     * @return array<string, string>
+     */
+    protected function emailLabels(array $strings, ?string $locale): array
+    {
+        $labels = [];
+
+        foreach ($strings as $key => [$id, $parameters]) {
+            $labels[$key] = $this->translator->trans(
+                $id,
+                $parameters,
+                \Comment\Comment::MESSAGE_DOMAIN_EMAIL,
+                $locale
+            );
+        }
+
+        return $labels;
+    }
+
     protected function sendCommentRequestCustomerMail($customerId, array $productIds)
     {
         $contact_email = ConfigQuery::getStoreEmail();
@@ -559,17 +568,36 @@ class CommentAction implements EventSubscriberInterface
                 );
             }
 
-            $parser = $this->parser;
-
             $locale = $customer->getCustomerLang()->getLocale();
-
-            $parser->assign('customer_id', $customer->getId());
-            $parser->assign('product_ids', $productIds);
-            $parser->assign('lang_id', $customer->getCustomerLang()->getId());
 
             $message->setLocale($locale);
 
-            $this->mailer->sendEmailToCustomer($message->getName(), $customer);
+            // Passed as message parameters rather than assigned on the shared parser: the
+            // template no longer re-reads the customer through {loop type="customer"}.
+            $this->mailer->sendEmailToCustomer(
+                $message->getName(),
+                $customer,
+                [
+                    'customer_firstname' => $customer->getFirstname(),
+                    'customer_lastname' => $customer->getLastname(),
+                    'product_ids' => array_map('intval', $productIds),
+                    'lang_id' => $customer->getCustomerLang()->getId(),
+                    'labels' => $this->emailLabels(
+                        [
+                            'dear' => ['Dear', []],
+                            'thanks' => [
+                                'Thank you for your order on our online store %store_name',
+                                ['%store_name' => ConfigQuery::getStoreName()],
+                            ],
+                            'invite' => ['It would be great to share your thoughts on products with other customers.', []],
+                            'products' => ['You can post comments on this products: ', []],
+                            'contact' => ['Feel free to contact us for any further information', []],
+                            'regards' => ['Best Regards.', []],
+                        ],
+                        $locale
+                    ),
+                ]
+            );
 
             Tlog::getInstance()->debug(
                 "Message sent to customer " . $customer->getEmail() . " to ask for comments"
@@ -608,14 +636,58 @@ class CommentAction implements EventSubscriberInterface
         );
         $this->dispatcher->dispatch($getCommentRefEvent, CommentEvents::COMMENT_REFERENCE_GETTER);
 
-        $this->mailer->sendEmailToShopManagers(
-            'new_comment_notification_admin',
-            [
-                'comment_id' => $comment->getId(),
-                'ref_title' => $getCommentRefEvent->getTitle(),
-                'ref_type_title' => $getCommentRefEvent->getTypeTitle(),
-            ]
-        );
+        // Read back through the repository rather than trusting whatever state the event's
+        // model is in, and hand the template plain values: the {loop type="comment"} it used
+        // to call no longer exists.
+        $posted = $this->commentRepository->findById((int) $comment->getId()) ?? $comment;
+
+        $adminUrl = URL::getInstance()->absoluteUrl('/admin/module/comment/update/'.$posted->getId());
+
+        // A mail that cannot be built must never take the visitor's comment down with it: this
+        // listener runs inside the COMMENT_CREATE dispatch, which Twig\Comment::save() does not
+        // guard. Message::getMessageBody() renders the layout without catching, so a shop whose
+        // email template set has no layout would otherwise 500 on every post.
+        try {
+            $this->mailer->sendEmailToShopManagers(
+                'new_comment_notification_admin',
+                [
+                    'comment_id' => $posted->getId(),
+                    'comment' => [
+                        'id' => $posted->getId(),
+                        'title' => $posted->getTitle(),
+                        'content' => $posted->getContent(),
+                        'rating' => $posted->getRating(),
+                        'adminUrl' => $adminUrl,
+                    ],
+                    'ref_title' => $getCommentRefEvent->getTitle(),
+                    'ref_type_title' => $getCommentRefEvent->getTypeTitle(),
+                    'labels' => $this->emailLabels(
+                        [
+                            'intro' => [
+                                'We inform you that a new customer comment has been posted for the %ref_type_title "%ref_title"',
+                                [
+                                    '%ref_type_title' => mb_strtolower((string) $getCommentRefEvent->getTypeTitle()),
+                                    '%ref_title' => $getCommentRefEvent->getTitle(),
+                                ],
+                            ],
+                            'rating' => ['Rating: ', []],
+                            'title' => ['Title: ', []],
+                            'content' => ['Content: ', []],
+                            'link' => ['You can now activate this comment by going to the comment management interface.', []],
+                            'linkWithUrl' => [
+                                'You can now activate this comment by going to the comment management interface: %comment_management_link',
+                                ['%comment_management_link' => $adminUrl],
+                            ],
+                        ],
+                        $shopLocale
+                    ),
+                ]
+            );
+        } catch (\Exception $ex) {
+            Tlog::getInstance()->error(
+                'Failed to notify shop managers of comment '.$posted->getId().': '.$ex->getMessage()
+            );
+        }
     }
 
     /**

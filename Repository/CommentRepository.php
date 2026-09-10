@@ -17,6 +17,7 @@ namespace Comment\Repository;
 use Comment\Model\Comment;
 use Comment\Model\CommentQuery;
 use Propel\Runtime\ActiveQuery\Criteria;
+use Thelia\Model\MetaData;
 
 /**
  * Every Propel query behind the back-office comment screens.
@@ -72,6 +73,43 @@ final readonly class CommentRepository
             ->getData();
 
         return ['items' => $items, 'total' => $total];
+    }
+
+    /**
+     * The products each of these customers has already commented on.
+     *
+     * Feeds the "please review your order" mail: a customer who already said what they think
+     * about a product must not be asked again. Lives here rather than in the action, which built
+     * the same query by hand, because reading comments is this class's job.
+     *
+     * @param list<int> $customerIds
+     *
+     * @return array<int, list<int>> product ids, keyed by customer id
+     */
+    public function findCommentedProductIdsByCustomer(array $customerIds): array
+    {
+        if ([] === $customerIds) {
+            return [];
+        }
+
+        $rows = CommentQuery::create()
+            ->filterByCustomerId($customerIds, Criteria::IN)
+            ->filterByRef(MetaData::PRODUCT_KEY)
+            ->select(['CustomerId', 'RefId'])
+            ->find()
+            ->toArray();
+
+        $commented = [];
+
+        foreach ($rows as $row) {
+            $commented[(int) $row['CustomerId']][] = (int) $row['RefId'];
+        }
+
+        // A customer who commented twice on the same product must appear once.
+        return array_map(
+            static fn (array $productIds): array => array_values(array_unique($productIds)),
+            $commented,
+        );
     }
 
     /**

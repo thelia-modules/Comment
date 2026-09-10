@@ -16,10 +16,10 @@
     <div class="container-fluid" data-testid="comment-list-content">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h1 class="h3 mb-0">{{ 'Comments management'|trans({}, 'comment.bo.default') }}</h1>
-            <a href="{{ path('comment_module_request-customer') }}" class="btn btn-primary flex-shrink-0">
-                <i class="bi bi-envelope" aria-hidden="true"></i>
-                {{ 'Send email to customer'|trans({}, 'comment.bo.default') }}
-            </a>
+                <a href="{{ token_url('comment_module_request-customer') }}" type="submit" class="btn btn-primary">
+                    <i class="bi bi-envelope" aria-hidden="true"></i>
+                    {{ 'Send email to customer'|trans({}, 'comment.bo.default') }}
+                </a>
         </div>
 
         <div class="card mb-3">

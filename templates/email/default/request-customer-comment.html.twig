@@ -1,0 +1,16 @@
+{# Fed by Comment\Action\CommentAction::sendCommentRequestCustomerMail. The customer travels in
+   the message parameters instead of {loop type="customer"}; the products are still resolved by
+   the core product loop, which the Thelia 3 port did not touch. #}
+<p>{{ labels.dear }} {{ customer_firstname }} {{ customer_lastname }},</p>
+
+<p>{{ labels.thanks }}</p>
+<p>{{ labels.invite }}</p>
+<p>{{ labels.products }}</p>
+<ul>
+    {% for product in loop('comment.request.products', 'product', {id: product_ids|join(','), lang: lang_id}) %}
+        <li><a href="{{ product.URL }}">{{ product.TITLE }}</a></li>
+    {% endfor %}
+</ul>
+<p>{{ labels.contact }}</p>
+
+<p>{{ labels.regards }}</p>

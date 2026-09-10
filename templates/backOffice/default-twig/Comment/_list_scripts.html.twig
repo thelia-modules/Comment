@@ -6,7 +6,8 @@
 #}
 <script>
     (function () {
-        const statusUrl = {{ path('comment_module_status')|json_encode|raw }};
+        {# token_url(), like the delete modal: the action validates the _token from the query string. #}
+        const statusUrl = {{ token_url('comment_module_status')|json_encode|raw }};
 
         document.querySelectorAll('[data-comment-status-change]').forEach(function (button) {
             button.addEventListener('click', function () {

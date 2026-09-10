@@ -43,7 +43,10 @@
 
                     {# What the comment is attached to, and who wrote it, are not editable here:
                        the update event reads all of them back (CommentController::bindFormData),
-                       so they travel hidden rather than being dropped from the form.
+                       so they travel hidden rather than being dropped from the form. `abuse` is
+                       not among them: it is neither hydrated nor read back, so it is marked
+                       rendered and stays out of the form_rest() at the end.
+
                        `type` is a widget variable, not an attribute: passing it through `attr`
                        leaves the field's own type in place and shows it. #}
                     {{ form_widget(form.success_url, {value: path('comment_module_default')}) }}
@@ -52,7 +55,7 @@
                     {{ form_widget(form.ref, {type: 'hidden', required: false}) }}
                     {{ form_widget(form.ref_id, {type: 'hidden', required: false}) }}
                     {{ form_widget(form.locale, {type: 'hidden', required: false}) }}
-                    {{ form_widget(form.abuse, {type: 'hidden', required: false}) }}
+                    {% do form.abuse.setRendered %}
 
                     <div class="row">
                         <div class="col-md-6">

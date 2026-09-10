@@ -1,4 +1,5 @@
 <?php
+
 /*************************************************************************************/
 /*                                                                                   */
 /*      Thelia                                                                       */
@@ -60,6 +61,7 @@ use Thelia\Core\Security\SecurityContext;
 use Thelia\Core\Template\ParserContext;
 use Thelia\Core\Translation\Translator;
 use Thelia\Form\BaseForm;
+use Thelia\Log\Tlog;
 use Thelia\Form\Exception\FormValidationException;
 use Thelia\Model\ConfigQuery;
 use Thelia\Model\MetaDataQuery;
@@ -74,7 +76,6 @@ use Thelia\Tools\URL;
 #[Route('/admin/module', name: 'comment_module')]
 class CommentController extends AbstractCrudController
 {
-
     public function __construct(
         private readonly CommentRepository $commentRepository,
         private readonly CommentListPresenter $commentListPresenter,
@@ -353,63 +354,104 @@ class CommentController extends AbstractCrudController
 
 
     #[Route('/comment/status', name: '_status', methods: ['POST'])]
-    public function changeStatusAction(RequestStack $requestStack, EventDispatcherInterface $eventDispatcher)
-    {
+    public function changeStatusAction(
+        RequestStack $requestStack,
+        EventDispatcherInterface $eventDispatcher,
+        TokenProvider $tokenProvider,
+    ) {
         if (null !== $response = $this->checkAuth([], ['comment'], AccessManager::UPDATE)
         ) {
             return $response;
         }
 
+        $request = $requestStack->getCurrentRequest();
+
+        // Accepting a comment publishes it on the shop: the same guard as deleteAction, so the
+        // request cannot be forged from another site and answered by a passing administrator.
+        $tokenProvider->checkToken((string) $request->query->get('_token', ''));
+
         $message = [
             "success" => false,
         ];
 
-        $request = $requestStack->getCurrentRequest();
         $id = $request->request->get('id');
         $status = $request->request->get('status');
 
-        if (null !== $id && null !== $status) {
-            try {
-                $event = new CommentChangeStatusEvent();
-                $event
-                    ->setId($id)
-                    ->setNewStatus($status);
+        // The status comes from the client and CommentAction::statusChange writes it as-is:
+        // this is the only place it is held to the values the model knows.
+        $allowedStatuses = [
+            \Comment\Model\Comment::PENDING,
+            \Comment\Model\Comment::ACCEPTED,
+            \Comment\Model\Comment::REFUSED,
+            \Comment\Model\Comment::ABUSED,
+        ];
 
-                $eventDispatcher->dispatch(
-                    $event,
-                    CommentEvents::COMMENT_STATUS_UPDATE
-                );
-
-                $message = [
-                    "success" => true,
-                    "data" => [
-                        'id' => $id,
-                        'status' => $event->getComment()->getStatus()
-                    ]
-                ];
-            } catch (\Exception $ex) {
-                $message["error"] = $ex->getMessage();
-            }
-        } else {
+        if (null === $id || null === $status || !\in_array((int) $status, $allowedStatuses, true)) {
             $message["error"] = Translator::getInstance()->trans('Missing parameters', [], Comment::MESSAGE_DOMAIN);
+
+            return $this->jsonResponse(json_encode($message, \JSON_THROW_ON_ERROR));
         }
 
-        return $this->jsonResponse(json_encode($message));
+        try {
+            $event = new CommentChangeStatusEvent();
+            $event
+                ->setId($id)
+                ->setNewStatus((int) $status);
+
+            $eventDispatcher->dispatch(
+                $event,
+                CommentEvents::COMMENT_STATUS_UPDATE
+            );
+
+            $message = [
+                "success" => true,
+                "data" => [
+                    'id' => $id,
+                    'status' => $event->getComment()->getStatus()
+                ]
+            ];
+        } catch (\Exception $ex) {
+            // The detail goes to the log, the browser gets a neutral message.
+            Tlog::getInstance()->error($ex->getMessage());
+
+            $message["error"] = Translator::getInstance()->trans(
+                'Impossible to change status.',
+                [],
+                Comment::MESSAGE_DOMAIN
+            );
+        }
+
+        return $this->jsonResponse(json_encode($message, \JSON_THROW_ON_ERROR));
     }
 
-    #[Route('/comment/activation/{ref}/{refId}', name: '_activation', requirements: ['refId' => '\\d+'], methods: ['POST'])]
-    public function activationAction($ref, $refId)
+    #[Route(
+        '/comment/activation/{ref}/{refId}',
+        name: '_activation',
+        requirements: ['ref' => '[a-z_]+', 'refId' => '\\d+'],
+        methods: ['POST'],
+    )]
+    public function activationAction(string $ref, int $refId, TokenProvider $tokenProvider)
     {
         if (null !== $response = $this->checkAuth([], ['comment'], AccessManager::UPDATE)
         ) {
             return $response;
         }
 
+        $request = $this->getRequest();
+
+        $tokenProvider->checkToken((string) $request->query->get('_token', ''));
+
         $message = [
             "success" => false,
         ];
 
-        $status = $this->getRequest()->request->get('status');
+        // `$ref` lands in meta_data as an element key: hold it to the references the module
+        // declares, so this route cannot write or delete rows for any other element type.
+        if (!\in_array($ref, Comment::getConfig()['ref_allowed'], true)) {
+            return $this->jsonResponse(json_encode($message, \JSON_THROW_ON_ERROR));
+        }
+
+        $status = $request->request->get('status');
 
         switch ($status) {
             case "0":
@@ -427,11 +469,14 @@ class CommentController extends AbstractCrudController
                     $message['success'] = true;
                 }
                 break;
+            default:
+                // An unknown value changes nothing: the answer stays success: false.
+                break;
         }
 
         $message['status'] = MetaDataQuery::getVal(\Comment\Model\Comment::META_KEY_ACTIVATED, $ref, $refId, "-1");
 
-        return $this->jsonResponse(json_encode($message));
+        return $this->jsonResponse(json_encode($message, \JSON_THROW_ON_ERROR));
     }
 
 
@@ -505,10 +550,19 @@ class CommentController extends AbstractCrudController
         );
     }
 
-    #[Route('/comment/request-customer', name: '_request-customer')]
-    public function requestCustomerCommentAction(EventDispatcherInterface $eventDispatcher, Request $request)
-    {
-        // We do not check auth, as the related route may be invoked from a cron
+    #[Route('/comment/request-customer', name: '_request-customer', methods: ['GET'])]
+    public function requestCustomerCommentAction(
+        EventDispatcherInterface $eventDispatcher,
+        Request $request,
+        TokenProvider $tokenProvider,
+    ) {
+        if (null !== $response = $this->checkAuth([], ['comment'], AccessManager::UPDATE)
+        ) {
+            return $response;
+        }
+
+        $tokenProvider->checkToken((string) $request->query->get('_token', ''));
+
         try {
             $eventDispatcher->dispatch(
                 new CommentCheckOrderEvent(),
@@ -519,15 +573,23 @@ class CommentController extends AbstractCrudController
             return $this->errorPage($ex);
         }
 
-        return $this->generateRedirect($request->headers->get('referer'));
+        return $this->redirectToListTemplate();
     }
 
-    #[Route('/comment/add-comment', name: '_add-comment')]
+    #[Route('/comment/add-comment', name: '_add-comment', methods: ['POST'])]
     public function addAdminComment(
         Request $request,
         EventDispatcherInterface $dispatcher,
         ParserContext $parserContext,
     ) {
+        // This action publishes a comment with setVerified(true) below: without the check, any
+        // back-office account, even one with no right on comments, could post a "verified" review.
+        // The CSRF side is already covered by validateForm(), AddCommentForm being a Thelia BaseForm.
+        if (null !== $response = $this->checkAuth([], ['comment'], AccessManager::CREATE)
+        ) {
+            return $response;
+        }
+
         $commentForm = $this->createForm(AddCommentForm::getName());
         $config = Comment::getConfig();
 
@@ -549,14 +611,15 @@ class CommentController extends AbstractCrudController
             $dispatcher->dispatch($event, CommentEvents::COMMENT_CREATE);
 
             if (null !== $event->getComment()) {
-                $this->generateSuccessRedirect($commentForm);
+                return $this->generateSuccessRedirect($commentForm);
             } else {
                 throw new Exception(
                     Translator::getInstance()->trans(
-                    "Sorry, an unknown error occurred. Please try again.",
-                    [],
-                    Comment::MESSAGE_DOMAIN
-                ));
+                        "Sorry, an unknown error occurred. Please try again.",
+                        [],
+                        Comment::MESSAGE_DOMAIN
+                    )
+                );
             }
         } catch (Exception $ex) {
             $commentForm->setErrorMessage($ex->getMessage());
