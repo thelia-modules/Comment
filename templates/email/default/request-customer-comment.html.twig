@@ -1,16 +1,27 @@
-{# Fed by Comment\Action\CommentAction::sendCommentRequestCustomerMail. The customer travels in
-   the message parameters instead of {loop type="customer"}; the products are still resolved by
-   the core product loop, which the Thelia 3 port did not touch. #}
-<p>{{ labels.dear }} {{ customer_firstname }} {{ customer_lastname }},</p>
+{% extends "email-layout.html.twig" %}
 
-<p>{{ labels.thanks }}</p>
-<p>{{ labels.invite }}</p>
-<p>{{ labels.products }}</p>
-<ul>
-    {% for product in loop('comment.request.products', 'product', {id: product_ids|join(','), lang: lang_id}) %}
-        <li><a href="{{ product.URL }}">{{ product.TITLE }}</a></li>
-    {% endfor %}
-</ul>
-<p>{{ labels.contact }}</p>
+{# No big image header #}
+{% block image_header %}{% endblock %}
 
-<p>{{ labels.regards }}</p>
+{# The subject line repeated in the document title, and the heading shown above the content.
+   Both come from `labels`: Twig's |trans does not reach a module's catalogue, so the strings
+   are translated in Comment\Action\CommentAction::sendCommentRequestCustomerMail. #}
+{% block email_subject %}{{ labels.subject }}{% endblock %}
+
+{% block email_title %}{{ labels.heading }}{% endblock %}
+
+{% block email_content %}
+    <p>{{ labels.dear }} {{ customer_firstname }} {{ customer_lastname }},</p>
+
+    <p>{{ labels.thanks }}</p>
+    <p>{{ labels.invite }}</p>
+    <p>{{ labels.products }}</p>
+    <ul>
+        {% for product in loop('comment.request.products', 'product', {id: product_ids|join(','), lang: lang_id}) %}
+            <li><a href="{{ product.URL }}">{{ product.TITLE }}</a></li>
+        {% endfor %}
+    </ul>
+    <p>{{ labels.contact }}</p>
+
+    <p>{{ labels.regards }}</p>
+{% endblock %}
