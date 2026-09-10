@@ -1,94 +1,88 @@
-# Module Comment
+# Comment
 
-The module **Comment** allows customer to add comments on different elements of the website : product, content, ...
+Lets customers post comments on products and on content pages. A comment has a title, a message
+and a rating, and it belongs to a customer when the visitor is signed in.
 
-A comment is composed of a :
+Version 2.0 is a rewrite for Thelia 3. The front office is a Symfony UX LiveComponent rendered in
+Twig, the back office runs on the `default-twig` theme, and the Smarty templates, the `comment`
+loop and the front controller are gone.
 
-- title
-- message
-- rating
-- is related to a customer
+## Requirements
 
-The message can be moderated by a administrator before being displayed on the website (recommended).
-
-Only registered and logged in customer can post comment on the website. You can also only authorized customers to post
-comment on products that they have bought. Customers will receive an email after 15 days (by default) to encourage them
-to post comment.   
-
-If the comment has been accepted the customer can edit or delete it.
-
-This module is compatible with Thelia version 2.1 or greater.
+Thelia 3.0 or greater, PHP 8.3.
 
 ## Installation
 
-### Manually
-
-* Copy the module into ```<thelia_root>/local/modules/``` directory and be sure that the name of the module is Comment.
-* Activate it in your thelia administration panel
-
-### Composer
-
-Add it in your main thelia composer.json file
+With composer, from the Thelia root:
 
 ```
-composer require thelia/comment-module ~1.3.0
+composer require thelia/comment-module
 ```
 
-## Usage
+Manually, copy the module into `<thelia_root>/local/modules/` under the name `Comment`, then
+activate it in the back office.
 
-In back-office, the configuration page allows you to configure the module.
+## Configuration
 
-In the tools menu, a new page displays comments and let you manage them.
+The configuration page is on the module list. It has seven settings:
 
-In the front office, an integration is provided for the default template. It uses hooks, so it's activated by default.
+| Setting | Effect |
+|---|---|
+| Activated | Turns comments on for the whole shop |
+| Moderate | New comments stay pending until an administrator accepts them |
+| Allowed references | Which element types accept comments, `product,content` by default |
+| Only customers | Only signed-in customers may post |
+| Only verified | Only customers who bought the product may comment on it |
+| Request delay | Days after an order before a customer is asked for a comment, 15 by default |
+| Notify administrators | Sends an email to the shop managers when a comment is posted |
 
-You can override these smarty templates in the current template. You have to put your templates files in this directory
- (with default template) : `template/frontOffice/default/modules/Comment/`
+The rating scale has no field on that page. It is the `comment_max_rating` configuration
+variable, 5 by default.
 
-## Loop
+## Front office
 
-The module provides a new loop : **comment**
+The module answers the `product.bottom` theme hook, so a theme that calls that hook shows the
+comment block with no further work. The block disappears on its own when comments are off for the
+shop or for the product.
 
-### Input arguments
+To place it somewhere else, render the component directly:
 
-|Argument |Description |
-|---      |--- |
-|**id**        | the comment id                                                     |
-|**customer**  | the customer id                                                    |
-|**ref**       | the reference key. eg : product                                    |
-|**ref_id**    | the reference id. (the product id)                                 |
-|**status**    | the status of the comment : 0 = pending, 1 = accepted              |
-|**verified**  | the customer has bought the product                                |
-|**locale**    | the locale of the comment : fr_FR                                  |
-|**load_ref**  | load or not the reference object. default = 0                      |
-|**ref_locale**| locale of the reference object fields. default: the request locale |
+```twig
+{{ component('Comment', {ref: 'product', refId: product.id}) }}
+```
 
-### Output arguments
+`ref` is the element type and `refId` its id. The component reads the module settings itself, so
+it renders the form only to a visitor who is allowed to post, and shows the reason otherwise. It
+brings no stylesheet of its own, so add the module's own one next to it:
 
-|Variable   |Description |
-|---        |--- |
-|$ID          | the comment id                                                             |                                                                       
-|$USERNAME    | the username                                                               |                                                                           
-|$EMAIL       | the email                                                                  |                                                                    
-|$CUSTOMER_ID | the customer id                                                            |                                                                                
-|$REF         | the reference key                                                          |                                                                          
-|$REF_ID      | the reference id                                                           |                                                                            
-|$TITLE       | the title                                                                  |                                                                    
-|$CONTENT     | the content                                                                |                                                                         
-|$RATING      | the rating                                                                 |                                                                      
-|$STATUS      | the status :  : 0 = pending, 1 = accepted                                  |                                                                                                      
-|$VERIFIED    | 0 : not verified / not applicable, 1 = the customer has bought the product |                                                                                                                                        
-|$ABUSE       | an abuse counter.                                                          |                                                                             
+```twig
+<link rel="stylesheet" href="{{ module_asset('Comment', 'assets/comment.css') }}">
+```
 
-## how to get the rating of a product
+## Back office
 
-Ratings are stored in the meta_data table. to retrieve the rating, you can use the smarty function `meta` like this :
+A comment management page sits in the tools menu. Comments are listed with a count per status,
+filtered by status or by the element they belong to, and can be accepted, refused, edited, deleted
+or written by hand. The same page carries the button that sends the comment requests to customers
+who ordered more than the configured delay ago.
 
-```smarty
-{$rating={meta meta="COMMENT_RATING" key="product" id="10"}}
-{if $rating}
-<span class="pull-right">
-    rating: {$rating}
-</span>
-{/if}
+## Emails
+
+Two messages, both editable in the back office:
+
+- `comment_request_customer` asks a customer for a comment after an order.
+- `new_comment_notification_admin` tells the shop managers about a new comment.
+
+Their templates are in `templates/email/default/`, and the strings they use are translated in
+`I18n/email/default/`.
+
+## Ratings
+
+The average rating of an element is stored in the `meta_data` table under the key
+`COMMENT_RATING`. It is recomputed when a comment is posted, when its status changes and when it is
+deleted. Inside the comment block the component exposes it as `this.averageRating`. Elsewhere, read
+it back:
+
+```php
+Thelia\Model\MetaDataQuery::getVal('COMMENT_RATING', 'product', $productId);
 ```
