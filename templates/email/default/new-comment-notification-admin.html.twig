@@ -1,0 +1,26 @@
+{# Fed by Comment\Action\CommentAction::notifyAdminOfNewComment.
+
+   The Smarty version re-fetched the comment with {loop type="comment"}; that loop went with the
+   Thelia 3 port, so the comment travels in the message parameters, read from CommentRepository.
+   The strings are translated there too: Twig's |trans does not reach a module's catalogue. #}
+{% extends "email-layout.html.twig" %}
+
+{# No big image header #}
+{% block image_header %}{% endblock %}
+
+{% block email_subject %}{{ labels.subject }}{% endblock %}
+
+{% block email_title %}{{ labels.heading }}{% endblock %}
+
+{% block email_content %}
+    <p>{{ labels.intro }}</p>
+
+    <p><strong>{{ labels.rating }}</strong>{{ comment.rating }}</p>
+
+    <p><strong>{{ labels.title }}</strong>{{ comment.title }}</p>
+
+    {# Visitor-written text: Twig escapes it, nl2br keeps the author's line breaks. #}
+    <p><strong>{{ labels.content }}</strong><br>{{ comment.content|nl2br }}</p>
+
+    <p><a href="{{ comment.adminUrl }}">{{ labels.link }}</a></p>
+{% endblock %}

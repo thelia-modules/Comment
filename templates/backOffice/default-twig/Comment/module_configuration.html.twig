@@ -1,0 +1,81 @@
+{# Comment — back-office configuration fragment (hook: module.configuration) #}
+{% for message in app.flashes('danger') %}
+    <div class="alert alert-danger mb-3" role="alert">{{ message }}</div>
+{% endfor %}
+
+{% set form = getForm('comment-configuration-form') %}
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h4 class="card-title mb-0">{{ 'Comment configuration.'|trans({}, 'comment.bo.default') }}</h4>
+    </div>
+
+    {{ form_start(form, {action: path('comment_module_configuration'), method: 'POST'}) }}
+
+    <div class="card-body">
+        {{ form_errors(form) }}
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-check mb-3">
+                    {{ form_widget(form.activated, {attr: {class: 'form-check-input'}}) }}
+                    {{ form_label(form.activated, null, {label_attr: {class: 'form-check-label'}}) }}
+                    <div class="form-text">{{ form.activated.vars.label_attr.help|default('') }}</div>
+                </div>
+
+                <div class="form-check mb-3">
+                    {{ form_widget(form.moderate, {attr: {class: 'form-check-input'}}) }}
+                    {{ form_label(form.moderate, null, {label_attr: {class: 'form-check-label'}}) }}
+                    <div class="form-text">{{ form.moderate.vars.label_attr.help|default('') }}</div>
+                </div>
+
+                <div class="form-check mb-3">
+                    {{ form_widget(form.only_customer, {attr: {class: 'form-check-input'}}) }}
+                    {{ form_label(form.only_customer, null, {label_attr: {class: 'form-check-label'}}) }}
+                    <div class="form-text">{{ form.only_customer.vars.label_attr.help|default('') }}</div>
+                </div>
+
+                <div class="form-check mb-3">
+                    {{ form_widget(form.only_verified, {attr: {class: 'form-check-input'}}) }}
+                    {{ form_label(form.only_verified, null, {label_attr: {class: 'form-check-label'}}) }}
+                    <div class="form-text">{{ form.only_verified.vars.label_attr.help|default('') }}</div>
+                </div>
+
+                <div class="form-check mb-3">
+                    {{ form_widget(form.notify_admin_new_comment, {attr: {class: 'form-check-input'}}) }}
+                    {{ form_label(form.notify_admin_new_comment, null, {label_attr: {class: 'form-check-label'}}) }}
+                    <div class="form-text">{{ form.notify_admin_new_comment.vars.label_attr.help|default('') }}</div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="mb-3">
+                    {{ form_label(form.ref_allowed, null, {label_attr: {class: 'form-label'}}) }}
+                    {{ form_widget(form.ref_allowed, {attr: {class: 'form-control' ~ (form.ref_allowed.vars.errors|length ? ' is-invalid' : '')}}) }}
+                    <div class="form-text">{{ form.ref_allowed.vars.label_attr.help|default('') }}</div>
+                    {{ form_errors(form.ref_allowed) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.request_customer_ttl, null, {label_attr: {class: 'form-label'}}) }}
+                    {{ form_widget(form.request_customer_ttl, {attr: {class: 'form-control' ~ (form.request_customer_ttl.vars.errors|length ? ' is-invalid' : '')}}) }}
+                    <div class="form-text">{{ form.request_customer_ttl.vars.label_attr.help|default('') }}</div>
+                    {{ form_errors(form.request_customer_ttl) }}
+                </div>
+
+                <div class="mb-3">
+                    <a href="{{ path('comment_module_default') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-chat-left-text" aria-hidden="true"></i>
+                        {{ 'Comments management'|trans({}, 'comment.bo.default') }}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-success" data-testid="comment-config-save">
+            <i class="bi bi-save" aria-hidden="true"></i> {{ 'Save'|trans }}
+        </button>
+    </div>
+
+    {{ form_end(form) }}
+</div>

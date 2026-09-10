@@ -1,0 +1,63 @@
+{% extends '@BackOfficeDefaultTwig/base.html.twig' %}
+
+{% block title %}{{ 'Comments'|trans({}, 'comment.bo.default') }}{% endblock %}
+{% block body_testid %}comment-list-page{% endblock %}
+
+{% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans({}, 'comment.bo.default') }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ 'Comments'|trans({}, 'comment.bo.default') }}</li>
+        </ol>
+    </nav>
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid" data-testid="comment-list-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="h3 mb-0">{{ 'Comments management'|trans({}, 'comment.bo.default') }}</h1>
+                <a href="{{ token_url('comment_module_request-customer') }}" type="submit" class="btn btn-primary">
+                    <i class="bi bi-envelope" aria-hidden="true"></i>
+                    {{ 'Send email to customer'|trans({}, 'comment.bo.default') }}
+                </a>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <form method="GET" action="{{ path('comment_module_default') }}" class="row row-cols-lg-auto g-2 align-items-center">
+                    <div class="col-12">
+                        <label for="loop_status" class="col-form-label">{{ 'Status'|trans({}, 'comment.bo.default') }}</label>
+                    </div>
+                    <div class="col-12">
+                        <select id="loop_status" name="loop_status" class="form-select form-select-sm">
+                            <option value="">{{ 'All'|trans({}, 'comment.bo.default') }}</option>
+                            {% for status in statuses %}
+                                <option value="{{ status.value }}" {{ filters.status is not null and filters.status == status.value ? 'selected' }}>
+                                    {{ status.label }} ({{ counts[status.value] ?? 0 }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'Filter'|trans({}, 'comment.bo.default') }}</button>
+                    </div>
+                    <div class="col-12 ms-auto text-muted small">
+                        {{ total }} {{ 'comment(s)'|trans({}, 'comment.bo.default') }}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                {% include 'Comment/_comments_table.html.twig' with {paginate: true} %}
+            </div>
+        </div>
+    </div>
+
+    {% include 'Comment/_delete_modal.html.twig' %}
+{% endblock %}
+
+{% block scripts_extra %}
+    {% include 'Comment/_list_scripts.html.twig' %}
+{% endblock %}

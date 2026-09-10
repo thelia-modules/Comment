@@ -29,7 +29,7 @@ class CommentDefinitionEvent extends CommentEvent
     /** @var array */
     protected $config = [];
 
-    /** @var \Thelia\Model\Customer */
+    /** @var \Thelia\Model\Customer|null */
     protected $customer = null;
 
     /** @var bool */
@@ -97,7 +97,7 @@ class CommentDefinitionEvent extends CommentEvent
     }
 
     /**
-     * @return \Thelia\Model\Customer
+     * @return \Thelia\Model\Customer|null
      */
     public function getCustomer()
     {
@@ -105,7 +105,7 @@ class CommentDefinitionEvent extends CommentEvent
     }
 
     /**
-     * @param \Thelia\Model\Customer $customer
+     * @param \Thelia\Model\Customer|null $customer
      */
     public function setCustomer($customer)
     {

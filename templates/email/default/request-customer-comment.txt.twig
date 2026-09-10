@@ -1,0 +1,12 @@
+{{ labels.dear }} {{ customer_firstname }} {{ customer_lastname }},
+
+{{ labels.thanks }}
+{{ labels.invite }}
+{{ labels.products }}
+{% for product in loop('comment.request.products', 'product', {id: product_ids|join(','), lang: lang_id}) -%}
+ - {{ product.TITLE }} : {{ product.URL }}
+{% endfor %}
+
+{{ labels.contact }}
+
+{{ labels.regards }}

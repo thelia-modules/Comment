@@ -1,0 +1,42 @@
+{#
+    Status change and delete confirmation.
+
+    Replaces templates/backOffice/default/assets/js/comment.js: no jQuery, no Bootstrap 3
+    dropdown plugin, and the endpoint is the same POST /admin/module/comment/status.
+#}
+<script>
+    (function () {
+        {# token_url(), like the delete modal: the action validates the _token from the query string. #}
+        const statusUrl = {{ token_url('comment_module_status')|json_encode|raw }};
+
+        document.querySelectorAll('[data-comment-status-change]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const body = new FormData();
+                body.append('id', button.dataset.commentId);
+                body.append('status', button.dataset.commentStatus);
+
+                fetch(statusUrl, {method: 'POST', body: body, credentials: 'same-origin'})
+                    .then(function (response) { return response.json(); })
+                    .then(function (result) {
+                        if (result.success) {
+                            window.location.reload();
+                            return;
+                        }
+                        window.alert(result.error || {{ 'Impossible to change status.'|trans({}, 'comment.bo.default')|json_encode|raw }});
+                    })
+                    .catch(function () {
+                        window.alert({{ 'Impossible to change status.'|trans({}, 'comment.bo.default')|json_encode|raw }});
+                    });
+            });
+        });
+
+        const deleteModalElement = document.getElementById('comment-delete-modal');
+        const deleteIdInput = document.getElementById('comment-delete-id');
+
+        if (deleteModalElement && deleteIdInput) {
+            deleteModalElement.addEventListener('show.bs.modal', function (event) {
+                deleteIdInput.value = event.relatedTarget ? event.relatedTarget.dataset.commentId : '';
+            });
+        }
+    })();
+</script>

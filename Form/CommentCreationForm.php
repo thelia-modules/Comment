@@ -164,7 +164,7 @@ class CommentCreationForm extends BaseForm
     /**
      * @return string the name of you form. This name must be unique
      */
-    public static function getName()
+    public static function getName(): string
     {
         return 'admin_comment_creation';
     }
