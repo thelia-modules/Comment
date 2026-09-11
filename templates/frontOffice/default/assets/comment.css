@@ -190,6 +190,37 @@
   flex: none;
 }
 
+/* Reporting is deliberately quiet: it belongs to the card, not next to the buy button. */
+.Comment-report,
+.Comment-reported {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-grey);
+  font-family: var(--font-family-paragraph-5);
+  font-size: var(--font-size-paragraph-5);
+  line-height: var(--line-height-paragraph-5);
+}
+
+.Comment-report {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.Comment-report:hover {
+  color: var(--color-black);
+}
+
+.Comment-report:focus-visible {
+  outline: 1px solid var(--color-base);
+  outline-offset: 2px;
+}
+
+.Comment-reported {
+  font-style: italic;
+}
+
 .Comment-more {
   display: flex;
   justify-content: center;

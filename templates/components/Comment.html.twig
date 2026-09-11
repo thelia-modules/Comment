@@ -39,9 +39,9 @@
                     class="Comment-card"
                 />
 
-                {# What the card itself cannot say: the shop checked this author bought what they
-                   are reviewing. The flag is the module's own, so it is drawn here rather than
-                   by asking the theme for one more prop. #}
+                {# What the card itself cannot say: the shop checked this author bought what
+                   they are reviewing, and the way to flag the comment. Both are the module's
+                   own, so they are drawn here rather than by asking the theme for a prop. #}
                 <p class="Comment-cardFooter">
                     {% if comment.verified %}
                         <span class="Comment-verified">
@@ -50,6 +50,16 @@
                             </svg>
                             {{ labels.verified }}
                         </span>
+                    {% endif %}
+
+                    {% if comment.reported %}
+                        <span class="Comment-reported">{{ labels.reported }}</span>
+                    {% else %}
+                        <button type="button"
+                                class="Comment-report"
+                                {{ ...stimulus_action('live', 'action', null, {action: 'report', commentId: comment.id}) }}>
+                            {{ labels.report }}
+                        </button>
                     {% endif %}
                 </p>
             </li>

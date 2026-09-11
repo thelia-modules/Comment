@@ -348,6 +348,13 @@ class Comment extends BaseModule
                     'limit' => 3,
                     'interval' => '1 hour',
                 ],
+                // Reporting is a click behind no form and no account: one visitor may flag a
+                // handful of comments, not walk down a page raising every counter.
+                'comment_abuse_per_client' => [
+                    'policy' => 'sliding_window',
+                    'limit' => 10,
+                    'interval' => '1 hour',
+                ],
             ],
         ], prepend: true);
     }

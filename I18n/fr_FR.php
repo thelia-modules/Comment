@@ -40,6 +40,7 @@ return array(
     'Too many comments have been sent from here. Please try again later.' => 'Trop de commentaires ont été envoyés depuis cet accès. Veuillez réessayer plus tard.',
     'Sorry, an unknown error occurred. Please try again.' => 'Désolé, une erreur non gérée est apparue. Veuillez ré-essayer.',
     'Status' => 'Statut',
+    'Thank you, this comment has been reported to the shop.' => 'Merci, ce commentaire a été signalé à la boutique.',
     'Thank you for submitting your comment.' => 'Merci pour votre commentaire.',
     'Title' => 'Titre',
     'Username' => 'Nom',

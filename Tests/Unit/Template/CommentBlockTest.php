@@ -20,12 +20,13 @@ use PHPUnit\Framework\TestCase;
  * What the comment block of a product page actually puts on the shop.
  *
  * The block is the module's own template, not the theme's, so nothing outside this module can
- * put back a mention it leaves out. The verified purchase is one it left out: computed on the
- * paid orders and stored on every comment, shown to the moderator, and to no one else.
+ * put back a mention it stops rendering. Two of them were computed and stored for a long time
+ * without ever reaching a visitor: the verified purchase, which the back office alone showed,
+ * and the abuse counter, which moderation read and no one could raise.
  *
  * Rendering the component needs a kernel, a theme and a database. These tests are the module's
  * own suite, which has none: they read the template instead, which is enough to catch the
- * regression that actually happened — the mention never being in the markup at all.
+ * regression that actually happened — the mention disappearing from the markup.
  */
 final class CommentBlockTest extends TestCase
 {
@@ -60,5 +61,35 @@ final class CommentBlockTest extends TestCase
     {
         self::assertStringContainsString("'verified' => (bool) \$comment->getVerified()", $this->component);
         self::assertStringContainsString("'verified' => \$this->translateFront('Verified')", $this->component);
+    }
+
+    /**
+     * The report control, and the action behind it. The abuse column and the "Abused" status
+     * existed from the start with no way for a visitor to raise either.
+     */
+    public function testAVisitorIsOfferedAWayToReportAComment(): void
+    {
+        self::assertStringContainsString('Comment-report', $this->template);
+        self::assertStringContainsString("action: 'report'", $this->template);
+        self::assertStringContainsString('commentId: comment.id', $this->template);
+    }
+
+    public function testTheReportActionIsWiredOnTheComponent(): void
+    {
+        self::assertMatchesRegularExpression(
+            '/#\[LiveAction\]\s*public function report\(#\[LiveArg\] int \$commentId\): void/',
+            $this->component
+        );
+    }
+
+    /**
+     * A control offered to someone who already used it is a control that lies: the row carries
+     * what the visitor's session remembers, so the button gives way to a plain mention.
+     */
+    public function testAlreadyReportedIsShownRatherThanOfferedAgain(): void
+    {
+        self::assertStringContainsString('comment.reported', $this->template);
+        self::assertStringContainsString('labels.reported', $this->template);
+        self::assertStringContainsString('alreadyReported', $this->component);
     }
 }

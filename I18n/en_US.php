@@ -33,6 +33,7 @@ return array(
     'Too many comments have been sent from here. Please try again later.' => 'Too many comments have been sent from here. Please try again later.',
     'Sorry, an unknown error occurred. Please try again.' => 'Sorry, an unknown error occurred. Please try again.',
     'Status' => 'Status',
+    'Thank you, this comment has been reported to the shop.' => 'Thank you, this comment has been reported to the shop.',
     'Thank you for submitting your comment.' => 'Thank you for submitting your comment.',
     'Title' => 'Title',
     'Username' => 'Username',
