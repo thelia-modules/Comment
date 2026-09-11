@@ -55,9 +55,11 @@
                     {% if comment.reported %}
                         <span class="Comment-reported">{{ labels.reported }}</span>
                     {% else %}
+                        {# Printed, not spread: `{{ ...x }}` is the syntax of a <twig:> tag, and
+                           on a plain element it compiles to a PHP parse error. #}
                         <button type="button"
                                 class="Comment-report"
-                                {{ ...stimulus_action('live', 'action', null, {action: 'report', commentId: comment.id}) }}>
+                                {{ stimulus_action('live', 'action', null, {action: 'report', commentId: comment.id}) }}>
                             {{ labels.report }}
                         </button>
                     {% endif %}
