@@ -403,11 +403,17 @@ class CommentController extends AbstractCrudController
                 CommentEvents::COMMENT_STATUS_UPDATE
             );
 
+            $comment = $event->getComment();
+
+            if (null === $comment) {
+                throw new \RuntimeException('No comment was returned for id '.$id);
+            }
+
             $message = [
                 "success" => true,
                 "data" => [
                     'id' => $id,
-                    'status' => $event->getComment()->getStatus()
+                    'status' => $comment->getStatus()
                 ]
             ];
         } catch (\Exception $ex) {

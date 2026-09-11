@@ -226,21 +226,29 @@ class CommentAction implements EventSubscriberInterface
 
     public function statusChange(CommentChangeStatusEvent $event): void
     {
-        $changed = false;
+        $comment = $this->commentRepository->findById((int) $event->getId());
 
-        if (null !== $comment = CommentQuery::create()->findPk($event->getId())) {
-            if ($comment->getStatus() !== $event->getNewStatus()) {
-                $comment->setStatus($event->getNewStatus());
-                $comment->save();
-
-                $event->setComment($comment);
-
-                $this->dispatchRatingCompute(
-                    $comment->getRef(),
-                    $comment->getRefId()
-                );
-            }
+        // The caller answers the browser with $event->getComment(): a comment that is gone has
+        // to be said out loud, not left as a null for the caller to dereference.
+        if (null === $comment) {
+            throw new \InvalidArgumentException('Comment '.$event->getId().' does not exist');
         }
+
+        // Always carried, even when there is nothing to change: moderating the same row twice
+        // is a double click, not an error.
+        $event->setComment($comment);
+
+        if ($comment->getStatus() === $event->getNewStatus()) {
+            return;
+        }
+
+        $comment->setStatus($event->getNewStatus());
+        $this->commentRepository->save($comment);
+
+        $this->dispatchRatingCompute(
+            $comment->getRef(),
+            $comment->getRefId()
+        );
     }
 
     public function productRatingCompute(CommentComputeRatingEvent $event): void
