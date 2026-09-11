@@ -15,6 +15,7 @@ declare(strict_types=1);
 
 namespace Comment;
 
+use Comment\Install\CommentSchemaUpgrade;
 use Comment\Model\CommentQuery;
 use Comment\Repository\CommentRepository;
 use Comment\Repository\CommentStorageInterface;
@@ -109,6 +110,10 @@ class Comment extends BaseModule
             self::setConfigValue('is_initialized', true);
         }
 
+        // A shop installed before the current schema needs what thelia.sql only gives to a
+        // first activation. Does nothing when the table is already up to date.
+        (new CommentSchemaUpgrade())->apply($con);
+
         $languages = LangQuery::create()->find();
         $this->loadEmailTranslations($languages);
 
@@ -173,6 +178,8 @@ class Comment extends BaseModule
 
     public function update($currentVersion, $newVersion, ?ConnectionInterface $con = null): void
     {
+        (new CommentSchemaUpgrade())->apply($con);
+
         $languages = LangQuery::create()->find();
         $this->loadEmailTranslations($languages);
 
