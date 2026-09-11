@@ -16,6 +16,8 @@ use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Post;
+use Comment\Api\State\CommentPostProcessor;
 use Comment\Api\State\CommentProvider;
 use Comment\Form\CommentContentConstraints;
 use Symfony\Component\Serializer\Annotation\Groups;
@@ -50,6 +52,13 @@ use Symfony\Component\Validator\Constraints\NotBlank;
             uriTemplate: '/front/comments/{id}',
             provider: CommentProvider::class,
             security: "is_granted('PUBLIC_ACCESS')",
+        ),
+        new Post(
+            uriTemplate: '/front/comments',
+            // Whether a visitor may post at all is the `comment_only_customer` setting's
+            // answer, not the firewall's: the processor asks the module.
+            security: "is_granted('PUBLIC_ACCESS')",
+            processor: CommentPostProcessor::class,
         ),
     ],
     normalizationContext: ['groups' => [self::GROUP_FRONT_READ]],

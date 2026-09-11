@@ -21,6 +21,8 @@ use Comment\Repository\CommentRepository;
 use Comment\Repository\CommentStorageInterface;
 use Comment\Repository\RatingMetaRepository;
 use Comment\Repository\RatingMetaStorageInterface;
+use Comment\Service\Front\CommentDefinitionResolver;
+use Comment\Service\Front\CommentDefinitionResolverInterface;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
@@ -363,5 +365,6 @@ class Comment extends BaseModule
         // alias of its own.
         $servicesConfigurator->alias(CommentStorageInterface::class, CommentRepository::class);
         $servicesConfigurator->alias(RatingMetaStorageInterface::class, RatingMetaRepository::class);
+        $servicesConfigurator->alias(CommentDefinitionResolverInterface::class, CommentDefinitionResolver::class);
     }
 }
