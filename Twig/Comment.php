@@ -21,6 +21,7 @@ use Comment\Form\AddCommentForm;
 use Comment\Model\Comment as CommentModel;
 use Comment\Repository\CommentRepository;
 use Comment\Service\Front\CommentDefinition;
+use Comment\Service\Front\CommentContentSanitizer;
 use Comment\Service\Front\CommentDefinitionResolver;
 use Comment\Service\Front\CommentPostLimiter;
 use Symfony\Component\Form\Form;
@@ -96,6 +97,7 @@ class Comment
         private readonly CommentDefinitionResolver $definitionResolver,
         private readonly CommentRepository $commentRepository,
         private readonly CommentPostLimiter $postLimiter,
+        private readonly CommentContentSanitizer $sanitizer,
         private readonly RequestStack $requestStack,
         // Thelia's own Translator: the only one carrying the module catalogues. Twig's |trans
         // goes to the Symfony translator, which on the front office knows the theme catalogue
@@ -137,11 +139,13 @@ class Comment
     public function getComments(): array
     {
         return array_map(
-            static fn (CommentModel $comment): array => [
+            fn (CommentModel $comment): array => [
                 'id' => $comment->getId(),
-                'author' => $comment->getUsername(),
-                'title' => $comment->getTitle(),
-                'content' => $comment->getContent(),
+                // What a visitor typed, cleaned on its way out: the moderator sees the stored
+                // text, the shop shows text and nothing else.
+                'author' => $this->sanitizer->sanitize($comment->getUsername()),
+                'title' => $this->sanitizer->sanitize($comment->getTitle()),
+                'content' => $this->sanitizer->sanitize($comment->getContent()),
                 'rating' => $comment->getRating(),
                 'verified' => (bool) $comment->getVerified(),
                 'date' => $comment->getCreatedAt(),
