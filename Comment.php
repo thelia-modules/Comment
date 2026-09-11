@@ -53,8 +53,14 @@ class Comment extends BaseModule
     /**  Use moderation */
     public const CONFIG_MODERATE = 1;
 
-    /** Allowed ref */
-    public const CONFIG_REF_ALLOWED = 'product,content';
+    /**
+     * Allowed ref.
+     *
+     * The product alone: it is the only reference the theme hook renders a comment block for.
+     * A shop that serves its own front through the API can add `content` in the configuration
+     * screen, where the setting is free text.
+     */
+    public const CONFIG_REF_ALLOWED = 'product';
 
     /** Only customers are abled to post comment */
     public const CONFIG_ONLY_CUSTOMER = 1;
