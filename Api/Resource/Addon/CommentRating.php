@@ -19,6 +19,8 @@ use Propel\Runtime\ActiveQuery\ModelCriteria;
 use Propel\Runtime\ActiveRecord\ActiveRecordInterface;
 use Propel\Runtime\Map\TableMap;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Thelia\Api\Resource\Product;
 use Thelia\Api\Resource\PropelResourceInterface;
 use Thelia\Api\Resource\ResourceAddonInterface;
@@ -48,7 +50,13 @@ class CommentRating implements ResourceAddonInterface
      *
      * Null rather than zero: a theme draws stars on an average, and zero out of five is a
      * verdict, not the absence of one.
+     *
+     * The key has to be there carrying that null. API Platform normalizes with
+     * `skip_null_values` on, which drops a null property from the payload entirely, and a
+     * client reading `ratingAverage` then gets "undefined" where the contract says "no rating
+     * yet" — two different things in every language that has both.
      */
+    #[Context(normalizationContext: [AbstractObjectNormalizer::SKIP_NULL_VALUES => false])]
     #[Groups([Product::GROUP_FRONT_READ, Product::GROUP_FRONT_READ_SINGLE])]
     public ?float $ratingAverage = null;
 

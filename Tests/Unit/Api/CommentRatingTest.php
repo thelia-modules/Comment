@@ -17,6 +17,8 @@ namespace Comment\Tests\Unit\Api;
 use Comment\Api\Resource\Addon\CommentRating;
 use Comment\Service\Api\RatingSnapshot;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Thelia\Api\Resource\Product;
 
 /**
@@ -58,6 +60,25 @@ final class CommentRatingTest extends TestCase
                 \sprintf('%s is missing from the front single read group', $property)
             );
         }
+    }
+
+    /**
+     * "No rating yet" has to reach the client as a null, which means the key has to be in the
+     * payload at all. API Platform normalizes with `skip_null_values` on, so a null property
+     * is dropped and the client reads an undefined field instead of the null the contract
+     * promises.
+     */
+    public function testTheAbsenceOfARatingIsSerialisedRatherThanDropped(): void
+    {
+        $attributes = (new \ReflectionProperty(CommentRating::class, 'ratingAverage'))
+            ->getAttributes(Context::class);
+
+        self::assertCount(1, $attributes, 'ratingAverage has nothing keeping its null in the payload');
+
+        $context = $attributes[0]->newInstance()->getNormalizationContext();
+
+        self::assertArrayHasKey(AbstractObjectNormalizer::SKIP_NULL_VALUES, $context);
+        self::assertFalse($context[AbstractObjectNormalizer::SKIP_NULL_VALUES]);
     }
 
     public function testAnElementWithRatingsCarriesTheStoredValues(): void
