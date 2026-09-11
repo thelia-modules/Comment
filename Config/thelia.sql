@@ -34,7 +34,7 @@ CREATE TABLE `comment`
         FOREIGN KEY (`customer_id`)
         REFERENCES `customer` (`id`)
         ON UPDATE RESTRICT
-        ON DELETE CASCADE
+        ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 # This restores the fkey checks, after having unset them earlier

@@ -51,6 +51,19 @@ final class SchemaTest extends TestCase
     }
 
     /**
+     * Deleting a customer must not delete what they wrote: a refused or reported comment is
+     * the trace of a moderation decision, and a deleted one leaves every average it weighed
+     * in as it was.
+     */
+    public function testDeletingACustomerLeavesTheirCommentsBehind(): void
+    {
+        self::assertStringContainsString('onDelete="SET NULL"', $this->schema);
+        self::assertStringNotContainsString('onDelete="CASCADE"', $this->schema);
+        self::assertStringContainsString('ON DELETE SET NULL', $this->sql);
+        self::assertStringNotContainsString('ON DELETE CASCADE', $this->sql);
+    }
+
+    /**
      * The moderation list and the four status counters filter on the status alone.
      */
     public function testTheStatusIsIndexed(): void

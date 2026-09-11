@@ -36,14 +36,18 @@ final class CommentSchemaUpgrade
 
     public const INDEX_STATUS = 'idx_comment_status';
 
+    public const CUSTOMER_FOREIGN_KEY = 'fk_comment_customer_id';
+
     private const TABLE = 'comment';
 
     /**
-     * @param list<string> $existingIndexes the index names the table already carries
+     * @param list<string> $existingIndexes    the index names the table already carries
+     * @param string|null  $customerDeleteRule the ON DELETE rule of the customer foreign key,
+     *                                         null when the table carries no such key
      *
      * @return list<string>
      */
-    public static function statementsFor(array $existingIndexes): array
+    public static function statementsFor(array $existingIndexes, ?string $customerDeleteRule): array
     {
         $statements = [];
 
@@ -57,6 +61,20 @@ final class CommentSchemaUpgrade
             $statements[] = 'ALTER TABLE `comment` ADD INDEX `'.self::INDEX_STATUS.'` (`status`)';
         }
 
+        // Deleting a customer must not delete what they wrote: a refused or a reported comment
+        // is the trace of a moderation decision, and a row that disappears on its own leaves
+        // every average it weighed in as it was. The account is anonymized instead, by
+        // Comment\Service\Customer\CommentPersonalDataProvider.
+        if ('SET NULL' !== strtoupper((string) $customerDeleteRule)) {
+            if (null !== $customerDeleteRule) {
+                $statements[] = 'ALTER TABLE `comment` DROP FOREIGN KEY `'.self::CUSTOMER_FOREIGN_KEY.'`';
+            }
+
+            $statements[] = 'ALTER TABLE `comment` ADD CONSTRAINT `'.self::CUSTOMER_FOREIGN_KEY.'`'
+                .' FOREIGN KEY (`customer_id`) REFERENCES `customer` (`id`)'
+                .' ON UPDATE RESTRICT ON DELETE SET NULL';
+        }
+
         return $statements;
     }
 
@@ -64,9 +82,27 @@ final class CommentSchemaUpgrade
     {
         $connection ??= Propel::getConnection('TheliaMain');
 
-        foreach (self::statementsFor($this->existingIndexes($connection)) as $statement) {
+        $statements = self::statementsFor(
+            $this->existingIndexes($connection),
+            $this->customerDeleteRule($connection)
+        );
+
+        foreach ($statements as $statement) {
             $connection->exec($statement);
         }
+    }
+
+    private function customerDeleteRule(ConnectionInterface $connection): ?string
+    {
+        $rule = $connection
+            ->query(
+                'SELECT DELETE_RULE FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS'
+                ." WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = '".self::TABLE."'"
+                ." AND CONSTRAINT_NAME = '".self::CUSTOMER_FOREIGN_KEY."'"
+            )
+            ->fetchColumn();
+
+        return false === $rule || null === $rule ? null : (string) $rule;
     }
 
     /**

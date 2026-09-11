@@ -16,7 +16,7 @@
         <column name="abuse" type="INTEGER" />
         <column name="locale" size="10" type="VARCHAR" />
         <behavior name="timestampable" />
-        <foreign-key foreignTable="customer" name="fk_comment_customer_id" onDelete="CASCADE" onUpdate="RESTRICT">
+        <foreign-key foreignTable="customer" name="fk_comment_customer_id" onDelete="SET NULL" onUpdate="RESTRICT">
             <reference foreign="id" local="customer_id" />
         </foreign-key>
         <index name="idx_comment_user_id">
