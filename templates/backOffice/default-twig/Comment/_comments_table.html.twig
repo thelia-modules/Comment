@@ -51,6 +51,16 @@
                             <li class="list-inline-item">
                                 {{ 'rating: '|trans({}, 'comment.bo.default') }}<strong>{{ row.rating }}</strong>
                             </li>
+                            {% if row.abuse > 0 %}
+                                {# Why this comment is where it is when the list is sorted by
+                                   reports. Drawn only when there is something to report. #}
+                                <li class="list-inline-item">
+                                    <span class="badge text-bg-warning" data-testid="comment-abuse-{{ row.id }}">
+                                        <i class="bi bi-flag" aria-hidden="true"></i>
+                                        {{ 'reported %count time(s)'|trans({'%count': row.abuse}, 'comment.bo.default') }}
+                                    </span>
+                                </li>
+                            {% endif %}
                             <li class="list-inline-item">
                                 {{ 'verified: '|trans({}, 'comment.bo.default') }}
                                 <strong>
