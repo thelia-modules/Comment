@@ -31,6 +31,21 @@ final class RatingType extends AbstractType
 {
     public const DEFAULT_MAX = 5;
 
+    /**
+     * The scale to rate on, from whatever `comment_max_rating` holds.
+     *
+     * A shop installed before the setting existed has no row at all, and a row can hold
+     * anything a database client typed. Read with a default of zero — which is what the shop's
+     * comment block did — such a shop draws a scale of zero stars and offers nothing to click.
+     * Anything that is not a scale is therefore the default scale, and never zero.
+     */
+    public static function scaleFrom(mixed $stored): int
+    {
+        $scale = is_numeric($stored) ? (int) $stored : 0;
+
+        return $scale >= 1 ? $scale : self::DEFAULT_MAX;
+    }
+
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefault('max', self::DEFAULT_MAX);

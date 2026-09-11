@@ -18,12 +18,15 @@ use Comment\Comment as CommentModule;
 use Comment\Events\CommentCreateEvent;
 use Comment\Events\CommentEvents;
 use Comment\Form\AddCommentForm;
+use Comment\Form\Field\RatingType;
 use Comment\Model\Comment as CommentModel;
 use Comment\Repository\CommentRepository;
+use Comment\Service\Front\CommentAbuseGuard;
 use Comment\Service\Front\CommentDefinition;
 use Comment\Service\Front\CommentContentSanitizer;
 use Comment\Service\Front\CommentDefinitionResolver;
 use Comment\Service\Front\CommentPostLimiter;
+use Comment\Service\Front\CommentReporter;
 use Symfony\Component\Form\Form;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -31,6 +34,7 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
 use Symfony\UX\LiveComponent\Attribute\LiveAction;
+use Symfony\UX\LiveComponent\Attribute\LiveArg;
 use Symfony\UX\LiveComponent\Attribute\LiveProp;
 use Symfony\UX\LiveComponent\ComponentToolsTrait;
 use Symfony\UX\LiveComponent\ComponentWithFormTrait;
@@ -97,6 +101,8 @@ class Comment
         private readonly CommentDefinitionResolver $definitionResolver,
         private readonly CommentRepository $commentRepository,
         private readonly CommentPostLimiter $postLimiter,
+        private readonly CommentReporter $reporter,
+        private readonly CommentAbuseGuard $abuseGuard,
         private readonly CommentContentSanitizer $sanitizer,
         private readonly RequestStack $requestStack,
         // Thelia's own Translator: the only one carrying the module catalogues. Twig's |trans
@@ -119,6 +125,8 @@ class Comment
             'verified' => $this->translateFront('Verified'),
             'rating' => $this->translateFront('rating'),
             'ratings' => $this->translateFront('ratings'),
+            'report' => $this->translateFront('Mark as inappropriate'),
+            'reported' => $this->translateFront('Reported'),
             'add' => $this->translateFront('Add your comment'),
             'send' => $this->translateFront('Send'),
             'total' => $this->translateFront('Customers have rated this product'),
@@ -147,7 +155,11 @@ class Comment
                 'title' => $this->sanitizer->sanitize($comment->getTitle()),
                 'content' => $this->sanitizer->sanitize($comment->getContent()),
                 'rating' => $comment->getRating(),
+                // TINYINT: the getter answers an int, which is falsy at 0 and truthy at 1.
                 'verified' => (bool) $comment->getVerified(),
+                // Read from the session, not from a query: the control is drawn off, so the
+                // visitor is not invited to a click that would be refused.
+                'reported' => $this->abuseGuard->alreadyReported((int) $comment->getId()),
                 'date' => $comment->getCreatedAt(),
             ],
             $this->search()['items'],
@@ -166,6 +178,31 @@ class Comment
     public function hasMore(): bool
     {
         return \count($this->search()['items']) < min($this->getTotal(), self::MAX_SHOWN);
+    }
+
+    /**
+     * A visitor flagging a comment they find inappropriate.
+     *
+     * Nothing leaves the shop: the comment stays where it is and only its counter moves, which
+     * is what puts it at the top of the moderation queue. The visitor is thanked whatever the
+     * reporter answered — a refusal here means "you already reported this one", and saying so
+     * out loud only tells whoever is probing which ids they have spent.
+     */
+    #[LiveAction]
+    public function report(#[LiveArg] int $commentId): void
+    {
+        $this->error = null;
+
+        $this->reporter->report($commentId);
+
+        $this->feedback = $this->translator->trans(
+            'Thank you, this comment has been reported to the shop.',
+            [],
+            CommentModule::MESSAGE_DOMAIN
+        );
+
+        // The list carries the "reported" state of every row: it has to be read again.
+        $this->searchResult = null;
     }
 
     #[LiveAction]
@@ -319,8 +356,11 @@ class Comment
             ->getForm();
     }
 
-    public function getMaxRating()
+    /**
+     * The scale the block draws its stars on. Never zero: see RatingType::scaleFrom().
+     */
+    public function getMaxRating(): int
     {
-        return ConfigQuery::read('comment_max_rating', 0);
+        return RatingType::scaleFrom(ConfigQuery::read('comment_max_rating'));
     }
 }

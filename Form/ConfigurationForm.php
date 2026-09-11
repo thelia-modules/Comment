@@ -17,6 +17,7 @@ use Comment\Comment;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Validator\Constraints\GreaterThanOrEqual;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Thelia\Form\BaseForm;
 
@@ -102,6 +103,23 @@ class ConfigurationForm extends BaseForm
                         'for' => "only_verified",
                         'help' => $this->trans(
                             "For product comments. Only customers that bought the product can post comments."
+                        )
+                    ],
+                ]
+            )
+            ->add(
+                "max_rating",
+                NumberType::class,
+                [
+                    'constraints' => [
+                        new GreaterThanOrEqual(['value' => 1])
+                    ],
+                    'data' => $config['max_rating'],
+                    'label' => $this->trans("Rating scale"),
+                    'label_attr' => [
+                        'for' => "max_rating",
+                        'help' => $this->trans(
+                            "How many stars a comment may be rated out of. 5 by default."
                         )
                     ],
                 ]

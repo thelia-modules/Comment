@@ -21,6 +21,8 @@ use Comment\Repository\CommentRepository;
 use Comment\Repository\CommentStorageInterface;
 use Comment\Repository\RatingMetaRepository;
 use Comment\Repository\RatingMetaStorageInterface;
+use Comment\Service\Front\CommentDefinitionResolver;
+use Comment\Service\Front\CommentDefinitionResolverInterface;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
@@ -346,6 +348,13 @@ class Comment extends BaseModule
                     'limit' => 3,
                     'interval' => '1 hour',
                 ],
+                // Reporting is a click behind no form and no account: one visitor may flag a
+                // handful of comments, not walk down a page raising every counter.
+                'comment_abuse_per_client' => [
+                    'policy' => 'sliding_window',
+                    'limit' => 10,
+                    'interval' => '1 hour',
+                ],
             ],
         ], prepend: true);
     }
@@ -363,5 +372,6 @@ class Comment extends BaseModule
         // alias of its own.
         $servicesConfigurator->alias(CommentStorageInterface::class, CommentRepository::class);
         $servicesConfigurator->alias(RatingMetaStorageInterface::class, RatingMetaRepository::class);
+        $servicesConfigurator->alias(CommentDefinitionResolverInterface::class, CommentDefinitionResolver::class);
     }
 }

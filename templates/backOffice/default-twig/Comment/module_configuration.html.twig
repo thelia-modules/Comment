@@ -57,6 +57,13 @@
                 </div>
 
                 <div class="mb-3">
+                    {{ form_label(form.max_rating, null, {label_attr: {class: 'form-label'}}) }}
+                    {{ form_widget(form.max_rating, {attr: {class: 'form-control' ~ (form.max_rating.vars.errors|length ? ' is-invalid' : ''), min: 1}}) }}
+                    <div class="form-text">{{ form.max_rating.vars.label_attr.help|default('') }}</div>
+                    {{ form_errors(form.max_rating) }}
+                </div>
+
+                <div class="mb-3">
                     {{ form_label(form.request_customer_ttl, null, {label_attr: {class: 'form-label'}}) }}
                     {{ form_widget(form.request_customer_ttl, {attr: {class: 'form-control' ~ (form.request_customer_ttl.vars.errors|length ? ' is-invalid' : '')}}) }}
                     <div class="form-text">{{ form.request_customer_ttl.vars.label_attr.help|default('') }}</div>

@@ -11,6 +11,7 @@ return array(
     'Load more comments...' => 'Voir plus de commentaires',
     'Mark as inappropriate' => 'Marquer comme inapproprié',
     'No more comments' => 'Plus de commentaire',
+    'Reported' => 'Signalé',
     'Send' => 'Envoyer',
     'There are no comments yet' => 'Il n\'y a pas encore de commentaire',
     'Verified' => 'Vérifié',

@@ -11,6 +11,7 @@ return array(
     'Load more comments...' => 'Load more comments...',
     'Mark as inappropriate' => 'Mark as inappropriate',
     'No more comments' => 'No more comments',
+    'Reported' => 'Reported',
     'Send' => 'Send',
     'There are no comments yet' => 'There are no comments yet',
     'Verified' => 'Verified',

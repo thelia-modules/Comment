@@ -25,13 +25,28 @@ final class InMemoryRatingMetaStorage implements RatingMetaStorageInterface
     /** @var list<array{ref: string, refId: int}> */
     public array $cleared = [];
 
+    /** @var array<string, array{average: float|null, count: int}> */
+    private array $values = [];
+
     public function store(string $ref, int $refId, float $average, int $count): void
     {
         $this->stored[] = ['ref' => $ref, 'refId' => $refId, 'average' => $average, 'count' => $count];
+        $this->values[$ref.'|'.$refId] = ['average' => $average, 'count' => $count];
     }
 
     public function clear(string $ref, int $refId): void
     {
         $this->cleared[] = ['ref' => $ref, 'refId' => $refId];
+        unset($this->values[$ref.'|'.$refId]);
+    }
+
+    /**
+     * What an element carries right now, in the shape the aggregate is read in.
+     *
+     * @return array{average: float|null, count: int}
+     */
+    public function read(string $ref, int $refId): array
+    {
+        return $this->values[$ref.'|'.$refId] ?? ['average' => null, 'count' => 0];
     }
 }

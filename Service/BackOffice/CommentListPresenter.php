@@ -28,6 +28,7 @@ final readonly class CommentListPresenter
     public function __construct(
         private CommentRepository $commentRepository,
         private CommentStatusCatalog $statusCatalog,
+        private CommentOrderCatalog $orderCatalog,
         private CommentReferenceResolver $referenceResolver,
     ) {
     }
@@ -36,6 +37,7 @@ final readonly class CommentListPresenter
      * @return array{
      *     rows: list<array<string, mixed>>,
      *     statuses: array<int, array{value: int, label: string, css: string}>,
+     *     orders: array<string, string>,
      *     counts: array<int, int>,
      *     filters: CommentListFilters,
      *     total: int,
@@ -59,6 +61,7 @@ final readonly class CommentListPresenter
                 $result['items'],
             ),
             'statuses' => $this->statusCatalog->all(),
+            'orders' => $this->orderCatalog->all(),
             'counts' => $this->commentRepository->countByStatus($filters->ref, $filters->refId),
             'filters' => $filters,
             'total' => $result['total'],

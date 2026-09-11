@@ -39,6 +39,18 @@
                         </select>
                     </div>
                     <div class="col-12">
+                        <label for="loop_order" class="col-form-label">{{ 'Sort by'|trans({}, 'comment.bo.default') }}</label>
+                    </div>
+                    <div class="col-12">
+                        {# In the filter form rather than beside it: choosing an order must not
+                           drop the status being filtered on. #}
+                        <select id="loop_order" name="loop_order" class="form-select form-select-sm">
+                            {% for order, label in orders %}
+                                <option value="{{ order }}" {{ filters.order == order ? 'selected' }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
                         <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'Filter'|trans({}, 'comment.bo.default') }}</button>
                     </div>
                     <div class="col-12 ms-auto text-muted small">

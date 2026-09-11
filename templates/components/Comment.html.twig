@@ -28,7 +28,7 @@
 
     <ul class="Comment-list">
         {% for comment in this.comments %}
-            <li>
+            <li class="Comment-item">
                 <twig:Organisms:ReviewCard:Base
                     author="{{ comment.author }}"
                     title="{{ comment.title }}"
@@ -36,8 +36,34 @@
                     date="{{ comment.date ? comment.date|date('d/m/Y') : '' }}"
                     note="{{ comment.rating }}"
                     maxNote="{{ maxRating }}"
-                    class="Comment-card bg-lightest"
+                    class="Comment-card"
                 />
+
+                {# What the card itself cannot say: the shop checked this author bought what
+                   they are reviewing, and the way to flag the comment. Both are the module's
+                   own, so they are drawn here rather than by asking the theme for a prop. #}
+                <p class="Comment-cardFooter">
+                    {% if comment.verified %}
+                        <span class="Comment-verified">
+                            <svg class="Comment-verifiedIcon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                                <path d="M6.2 11.6 2.8 8.2l1.1-1.1 2.3 2.2 5.9-5.9 1.1 1.2z"/>
+                            </svg>
+                            {{ labels.verified }}
+                        </span>
+                    {% endif %}
+
+                    {% if comment.reported %}
+                        <span class="Comment-reported">{{ labels.reported }}</span>
+                    {% else %}
+                        {# Printed, not spread: `{{ ...x }}` is the syntax of a <twig:> tag, and
+                           on a plain element it compiles to a PHP parse error. #}
+                        <button type="button"
+                                class="Comment-report"
+                                {{ stimulus_action('live', 'action', null, {action: 'report', commentId: comment.id}) }}>
+                            {{ labels.report }}
+                        </button>
+                    {% endif %}
+                </p>
             </li>
         {% else %}
             <li class="paragraph-3 text-grey">{{ labels.empty }}</li>

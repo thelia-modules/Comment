@@ -29,6 +29,21 @@ final readonly class CommentRepository implements CommentStorageInterface
 {
     public const DEFAULT_ORDER = 'created_reverse';
 
+    /**
+     * Every order the list may be sorted by, in the order a moderator is offered them.
+     *
+     * @var list<string>
+     */
+    public const ORDERS = [
+        'created_reverse',
+        'created',
+        'abuse_reverse',
+        'abuse',
+        'rating_reverse',
+        'rating',
+        'status',
+    ];
+
     public function findById(int $id): ?Comment
     {
         return CommentQuery::create()->findPk($id);
@@ -59,6 +74,29 @@ final readonly class CommentRepository implements CommentStorageInterface
     public function save(Comment $comment): void
     {
         $comment->save();
+    }
+
+    public function deleteByReference(string $ref, int $refId): int
+    {
+        return CommentQuery::create()
+            ->filterByRef($ref)
+            ->filterByRefId($refId)
+            ->delete();
+    }
+
+    /**
+     * @return array{items: list<Comment>, total: int}
+     */
+    public function searchAccepted(string $ref, int $refId, int $page, int $limit): array
+    {
+        return $this->search(
+            ref: $ref,
+            refId: $refId,
+            status: Comment::ACCEPTED,
+            order: self::DEFAULT_ORDER,
+            page: $page,
+            limit: $limit,
+        );
     }
 
     /**
@@ -189,14 +227,37 @@ final readonly class CommentRepository implements CommentStorageInterface
         return $counts;
     }
 
+    /**
+     * The column and direction one order sorts by, as Propel names them.
+     *
+     * Kept apart from the query so that what the back office offers and what the repository
+     * can actually sort by are comparable without a database.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function orderFor(string $order): array
+    {
+        return match ($order) {
+            'created' => ['CreatedAt', Criteria::ASC],
+            'abuse' => ['Abuse', Criteria::ASC],
+            'abuse_reverse' => ['Abuse', Criteria::DESC],
+            'rating' => ['Rating', Criteria::ASC],
+            'rating_reverse' => ['Rating', Criteria::DESC],
+            'status' => ['Status', Criteria::ASC],
+            default => ['CreatedAt', Criteria::DESC],
+        };
+    }
+
     private function applyOrder(CommentQuery $query, string $order): void
     {
-        match ($order) {
-            'created' => $query->orderByCreatedAt(Criteria::ASC),
-            'rating' => $query->orderByRating(Criteria::ASC),
-            'rating_reverse' => $query->orderByRating(Criteria::DESC),
-            'status' => $query->orderByStatus(Criteria::ASC),
-            default => $query->orderByCreatedAt(Criteria::DESC),
-        };
+        [$column, $direction] = self::orderFor($order);
+
+        $query->orderBy($column, $direction);
+
+        // Most of the queue shares the same counter or the same rating, and a moderator
+        // reading a page twice has to see it in the same order: the date breaks the tie.
+        if (\in_array($column, ['Abuse', 'Rating'], true)) {
+            $query->orderByCreatedAt(Criteria::DESC);
+        }
     }
 }

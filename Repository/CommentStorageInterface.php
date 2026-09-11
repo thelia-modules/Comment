@@ -45,6 +45,26 @@ interface CommentStorageInterface
     public function save(Comment $comment): void;
 
     /**
+     * Removes every comment of one element, whatever its moderation status, and answers how
+     * many went.
+     *
+     * An element is named by a reference pair, which no foreign key can describe: when a
+     * product or a content is deleted, nothing in the database takes its comments with it.
+     */
+    public function deleteByReference(string $ref, int $refId): int;
+
+    /**
+     * One page of the accepted comments of an element, most recent first.
+     *
+     * The status is not a parameter: this is what a visitor may read, and the front API reads
+     * nothing else. A refused or pending comment must not become readable because a query
+     * parameter asked for it.
+     *
+     * @return array{items: list<Comment>, total: int}
+     */
+    public function searchAccepted(string $ref, int $refId, int $page, int $limit): array;
+
+    /**
      * Average rating and number of ratings over the accepted comments of an element.
      *
      * The average is null when no accepted comment carries a rating, which is exactly the

@@ -20,6 +20,7 @@ use Comment\Events\CommentEvents;
 use Comment\Exception\InvalidDefinitionException;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Thelia\Core\Security\SecurityContext;
+use Thelia\Model\Customer;
 
 /**
  * Asks the module whether comments may be shown and posted on a given element.
@@ -32,7 +33,7 @@ use Thelia\Core\Security\SecurityContext;
  * Both the theme hook and the LiveComponent go through this resolver, so the front never
  * shows a form the module would refuse.
  */
-final readonly class CommentDefinitionResolver
+final readonly class CommentDefinitionResolver implements CommentDefinitionResolverInterface
 {
     public function __construct(
         private EventDispatcherInterface $eventDispatcher,
@@ -40,13 +41,15 @@ final readonly class CommentDefinitionResolver
     ) {
     }
 
-    public function resolve(string $ref, int $refId): CommentDefinition
+    public function resolve(string $ref, int $refId, ?Customer $customer = null): CommentDefinition
     {
         $event = new CommentDefinitionEvent();
         $event
             ->setRef($ref)
             ->setRefId($refId)
-            ->setCustomer($this->securityContext->getCustomerUser())
+            // The session holds the customer on the front office; an API request is stateless
+            // and hands the one its token authenticated.
+            ->setCustomer($customer ?? $this->securityContext->getCustomerUser())
             ->setConfig(Comment::getConfig());
 
         try {
