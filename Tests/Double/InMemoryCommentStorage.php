@@ -74,6 +74,24 @@ final class InMemoryCommentStorage implements CommentStorageInterface
     }
 
     /**
+     * @return array{items: list<Comment>, total: int}
+     */
+    public function searchAccepted(string $ref, int $refId, int $page, int $limit): array
+    {
+        $accepted = array_values(array_filter(
+            $this->rows,
+            static fn (Comment $comment): bool => Comment::ACCEPTED === $comment->getStatus()
+                && $ref === $comment->getRef()
+                && $refId === $comment->getRefId(),
+        ));
+
+        return [
+            'items' => array_slice($accepted, ($page - 1) * $limit, $limit),
+            'total' => \count($accepted),
+        ];
+    }
+
+    /**
      * @return array{average: float|null, count: int}
      */
     public function acceptedRatingAggregate(string $ref, int $refId): array

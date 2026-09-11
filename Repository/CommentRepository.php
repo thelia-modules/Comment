@@ -62,6 +62,21 @@ final readonly class CommentRepository implements CommentStorageInterface
     }
 
     /**
+     * @return array{items: list<Comment>, total: int}
+     */
+    public function searchAccepted(string $ref, int $refId, int $page, int $limit): array
+    {
+        return $this->search(
+            ref: $ref,
+            refId: $refId,
+            status: Comment::ACCEPTED,
+            order: self::DEFAULT_ORDER,
+            page: $page,
+            limit: $limit,
+        );
+    }
+
+    /**
      * @return array{average: float|null, count: int}
      */
     public function acceptedRatingAggregate(string $ref, int $refId): array

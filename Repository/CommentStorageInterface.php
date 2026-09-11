@@ -45,6 +45,17 @@ interface CommentStorageInterface
     public function save(Comment $comment): void;
 
     /**
+     * One page of the accepted comments of an element, most recent first.
+     *
+     * The status is not a parameter: this is what a visitor may read, and the front API reads
+     * nothing else. A refused or pending comment must not become readable because a query
+     * parameter asked for it.
+     *
+     * @return array{items: list<Comment>, total: int}
+     */
+    public function searchAccepted(string $ref, int $refId, int $page, int $limit): array;
+
+    /**
      * Average rating and number of ratings over the accepted comments of an element.
      *
      * The average is null when no accepted comment carries a rating, which is exactly the
