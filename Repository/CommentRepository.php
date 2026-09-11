@@ -76,6 +76,14 @@ final readonly class CommentRepository implements CommentStorageInterface
         $comment->save();
     }
 
+    public function deleteByReference(string $ref, int $refId): int
+    {
+        return CommentQuery::create()
+            ->filterByRef($ref)
+            ->filterByRefId($refId)
+            ->delete();
+    }
+
     /**
      * @return array{items: list<Comment>, total: int}
      */

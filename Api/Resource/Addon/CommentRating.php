@@ -15,6 +15,7 @@ namespace Comment\Api\Resource\Addon;
 use ApiPlatform\Metadata\Operation;
 use Comment\Service\Api\RatingMetaMemo;
 use Comment\Service\Api\RatingSnapshot;
+use Comment\Service\CommentElementPurger;
 use Propel\Runtime\ActiveQuery\ModelCriteria;
 use Propel\Runtime\ActiveRecord\ActiveRecordInterface;
 use Propel\Runtime\Map\TableMap;
@@ -82,13 +83,13 @@ class CommentRating implements ResourceAddonInterface
 
     public function buildFromModel(ActiveRecordInterface $activeRecord, PropelResourceInterface $abstractPropelResource): ResourceAddonInterface
     {
-        $productId = $activeRecord->getId();
+        $productId = self::identify($activeRecord);
 
         if (null === $productId) {
             return $this;
         }
 
-        return $this->fromSnapshot(RatingMetaMemo::forElement(self::REF, (int) $productId));
+        return $this->fromSnapshot(RatingMetaMemo::forElement(self::REF, $productId));
     }
 
     public function fromSnapshot(RatingSnapshot $snapshot): self
@@ -110,9 +111,43 @@ class CommentRating implements ResourceAddonInterface
         // through the product resource.
     }
 
+    /**
+     * The product is being deleted through the API: its comments and its stored rating go
+     * with it.
+     *
+     * This is the only hook on that path. The bridge's PropelRemoveProcessor deletes the row
+     * itself and dispatches no Thelia event, so the PRODUCT_DELETE listener never runs for an
+     * API request, and a reference pair is not a foreign key the database could cascade.
+     *
+     * Called before the row is deleted and inside the processor's transaction: a product the
+     * shop refuses to delete takes its comments back with it.
+     */
     public function doDelete(ActiveRecordInterface $activeRecord, PropelResourceInterface $abstractPropelResource): void
     {
-        // Read-only: the stored values are erased by the module when the last rated comment
-        // goes.
+        $productId = self::identify($activeRecord);
+
+        if (null === $productId) {
+            return;
+        }
+
+        CommentElementPurger::standalone()->purge(self::REF, $productId);
+    }
+
+    /**
+     * The id of the row being read or removed, or null when there is none to speak of.
+     *
+     * ActiveRecordInterface declares no getId(): every generated Thelia model has one, and a
+     * double of the interface does not. Asked for it blindly, the addon dies with a fatal
+     * inside a delete rather than doing nothing.
+     */
+    private static function identify(ActiveRecordInterface $activeRecord): ?int
+    {
+        if (!method_exists($activeRecord, 'getId')) {
+            return null;
+        }
+
+        $id = $activeRecord->getId();
+
+        return null === $id ? null : (int) $id;
     }
 }

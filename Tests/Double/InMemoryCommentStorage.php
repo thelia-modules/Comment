@@ -116,4 +116,18 @@ final class InMemoryCommentStorage implements CommentStorageInterface
         $this->store($comment);
         $this->saved[] = $comment;
     }
+
+    public function deleteByReference(string $ref, int $refId): int
+    {
+        $deleted = 0;
+
+        foreach ($this->rows as $id => $comment) {
+            if ($ref === $comment->getRef() && $refId === $comment->getRefId()) {
+                unset($this->rows[$id]);
+                ++$deleted;
+            }
+        }
+
+        return $deleted;
+    }
 }

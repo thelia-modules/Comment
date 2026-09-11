@@ -121,15 +121,37 @@ final class CommentRatingTest extends TestCase
         self::assertNull(CommentRating::getPropelRelatedTableMap());
     }
 
-    public function testItNeverWritesThroughTheProductResource(): void
+    public function testARatingIsNeverWrittenThroughTheProductResource(): void
     {
         $addon = new CommentRating();
-        $record = $this->createStub(\Propel\Runtime\ActiveRecord\ActiveRecordInterface::class);
-        $resource = $this->createStub(\Thelia\Api\Resource\PropelResourceInterface::class);
 
-        $addon->doSave($record, $resource);
-        $addon->doDelete($record, $resource);
+        $addon->doSave(
+            $this->createStub(\Propel\Runtime\ActiveRecord\ActiveRecordInterface::class),
+            $this->createStub(\Thelia\Api\Resource\PropelResourceInterface::class),
+        );
 
+        self::assertSame(0, $addon->ratingCount);
+    }
+
+    /**
+     * ActiveRecordInterface declares no getId(). Every generated model has one, a double of
+     * the interface does not, and a delete that asks for it blindly dies with a fatal.
+     */
+    public function testARowThatCannotNameItselfIsLeftAlone(): void
+    {
+        $addon = new CommentRating();
+
+        $addon->doDelete(
+            $this->createStub(\Propel\Runtime\ActiveRecord\ActiveRecordInterface::class),
+            $this->createStub(\Thelia\Api\Resource\PropelResourceInterface::class),
+        );
+
+        $addon->buildFromModel(
+            $this->createStub(\Propel\Runtime\ActiveRecord\ActiveRecordInterface::class),
+            $this->createStub(\Thelia\Api\Resource\PropelResourceInterface::class),
+        );
+
+        self::assertNull($addon->ratingAverage);
         self::assertSame(0, $addon->ratingCount);
     }
 }
