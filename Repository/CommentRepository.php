@@ -25,13 +25,66 @@ use Thelia\Model\MetaData;
  * The Smarty back-office read its rows through {loop type="comment"}; the Twig back-office
  * has no loops, so the controller asks this repository and hands the result to the template.
  */
-final readonly class CommentRepository
+final readonly class CommentRepository implements CommentStorageInterface
 {
     public const DEFAULT_ORDER = 'created_reverse';
 
     public function findById(int $id): ?Comment
     {
         return CommentQuery::create()->findPk($id);
+    }
+
+    public function findOneByCustomerAndReference(int $customerId, string $ref, int $refId): ?Comment
+    {
+        return CommentQuery::create()
+            ->filterByCustomerId($customerId)
+            ->filterByRef($ref)
+            ->filterByRefId($refId)
+            ->orderById(Criteria::DESC)
+            ->findOne();
+    }
+
+    /**
+     * @return list<Comment>
+     */
+    public function findByCustomer(int $customerId): array
+    {
+        return CommentQuery::create()
+            ->filterByCustomerId($customerId)
+            ->orderById(Criteria::ASC)
+            ->find()
+            ->getData();
+    }
+
+    public function save(Comment $comment): void
+    {
+        $comment->save();
+    }
+
+    /**
+     * @return array{average: float|null, count: int}
+     */
+    public function acceptedRatingAggregate(string $ref, int $refId): array
+    {
+        $row = CommentQuery::create()
+            ->filterByRef($ref)
+            ->filterByRefId($refId)
+            ->filterByStatus(Comment::ACCEPTED)
+            ->withColumn('AVG(RATING)', 'AVG_RATING')
+            ->withColumn('COUNT(RATING)', 'RATING_COUNT')
+            ->select(['AVG_RATING', 'RATING_COUNT'])
+            ->findOne();
+
+        // One row always comes back from an aggregate, with a null average when there is
+        // nothing to average. select() on a computed column hands back the raw driver value,
+        // a string for an SQL AVG().
+        $average = \is_array($row) ? $row['AVG_RATING'] : null;
+        $count = \is_array($row) ? $row['RATING_COUNT'] : 0;
+
+        return [
+            'average' => null === $average ? null : (float) $average,
+            'count' => (int) $count,
+        ];
     }
 
     /**

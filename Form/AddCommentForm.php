@@ -78,8 +78,9 @@ class AddCommentForm extends BaseForm
                 ]
             ])
             ->add('content', TextareaType::class, [
+                'constraints' => CommentContentConstraints::all(),
                 'label' => $this->trans('Content'),
-                'required' => false,
+                'required' => true,
                 'label_attr' => [
                     'for' => 'content'
                 ]

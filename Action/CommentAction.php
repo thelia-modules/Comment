@@ -44,7 +44,8 @@ use Comment\Events\CommentUpdateEvent;
 use Comment\Exception\InvalidDefinitionException;
 use Comment\Model\Comment;
 use Comment\Model\CommentQuery;
-use Comment\Repository\CommentRepository;
+use Comment\Repository\CommentStorageInterface;
+use Comment\Repository\RatingMetaStorageInterface;
 use Propel\Runtime\ActiveQuery\Criteria;
 use Propel\Runtime\ActiveQuery\Join;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -89,16 +90,20 @@ class CommentAction implements EventSubscriberInterface
     /** @var EventDispatcherInterface|null */
     protected $dispatcher;
 
-    /** @var CommentRepository|null */
+    /** @var CommentStorageInterface|null */
     protected $commentRepository;
 
-    public function __construct(TranslatorInterface $translator, ParserInterface $parser, MailerFactory $mailer, EventDispatcherInterface $dispatcher, CommentRepository $commentRepository)
+    /** @var RatingMetaStorageInterface|null */
+    protected $ratingMeta;
+
+    public function __construct(TranslatorInterface $translator, ParserInterface $parser, MailerFactory $mailer, EventDispatcherInterface $dispatcher, CommentStorageInterface $commentRepository, RatingMetaStorageInterface $ratingMeta)
     {
         $this->translator = $translator;
         $this->parser = $parser;
         $this->mailer = $mailer;
         $this->dispatcher = $dispatcher;
         $this->commentRepository = $commentRepository;
+        $this->ratingMeta = $ratingMeta;
     }
 
     /**
@@ -117,7 +122,24 @@ class CommentAction implements EventSubscriberInterface
 
     public function create(CommentCreateEvent $event): void
     {
-        $comment = new Comment();
+        $customerId = null === $event->getCustomerId() ? null : (int) $event->getCustomerId();
+
+        // One comment per customer and per element. A customer posting again on the same
+        // product is editing what they already said, so the row is rewritten in place: two
+        // rows would both weigh in the average and the shop would show the same buyer twice.
+        // The status comes from the event, which carries the moderation rule in force, so an
+        // edited comment goes back through moderation instead of staying published.
+        $comment = null === $customerId
+            ? null
+            : $this->commentRepository->findOneByCustomerAndReference(
+                $customerId,
+                (string) $event->getRef(),
+                (int) $event->getRefId()
+            );
+
+        $previousStatus = $comment?->getStatus();
+
+        $comment ??= new Comment();
 
         $comment
             ->setRef($event->getRef())
@@ -131,12 +153,17 @@ class CommentAction implements EventSubscriberInterface
             ->setStatus(self::toColumnInt($event->getStatus()))
             ->setVerified(self::toColumnInt($event->isVerified()))
             ->setRating(self::toColumnInt($event->getRating()))
-            ->setAbuse(self::toColumnInt($event->getAbuse()))
-            ->save();
+            // An edit must not wipe the abuse reports the comment already collected: the
+            // front never sends that counter.
+            ->setAbuse(self::toColumnInt($event->getAbuse()) ?? $comment->getAbuse());
+
+        $this->commentRepository->save($comment);
 
         $event->setComment($comment);
 
-        if (Comment::ACCEPTED === $comment->getStatus()) {
+        // Recompute when the comment is live, and also when a published one has just gone
+        // back to moderation: the average has to lose it.
+        if (Comment::ACCEPTED === $comment->getStatus() || Comment::ACCEPTED === $previousStatus) {
             $this->dispatchRatingCompute(
                 $comment->getRef(),
                 $comment->getRefId()
@@ -146,28 +173,34 @@ class CommentAction implements EventSubscriberInterface
 
     public function update(CommentUpdateEvent $event): void
     {
-        if (null !== $comment = CommentQuery::create()->findPk($event->getId())) {
-            $comment
-                ->setRef($event->getRef())
-                ->setRefId($event->getRefId())
-                ->setCustomerId($event->getUsername() ? null : $event->getCustomerId())
-                ->setUsername($event->getUsername())
-                ->setEmail($event->getEmail())
-                ->setLocale($event->getLocale())
-                ->setTitle($event->getTitle())
-                ->setContent($event->getContent())
-                ->setStatus(self::toColumnInt($event->getStatus()))
-                ->setVerified(self::toColumnInt($event->isVerified()))
-                ->setRating(self::toColumnInt($event->getRating()))
-                ->setAbuse(self::toColumnInt($event->getAbuse()))
-                ->save();
-            $event->setComment($comment);
+        $comment = $this->commentRepository->findById((int) $event->getId());
 
-            $this->dispatchRatingCompute(
-                $comment->getRef(),
-                $comment->getRefId()
-            );
+        if (null === $comment) {
+            return;
         }
+
+        $comment
+            ->setRef($event->getRef())
+            ->setRefId($event->getRefId())
+            ->setCustomerId($event->getCustomerId())
+            ->setUsername($event->getUsername())
+            ->setEmail($event->getEmail())
+            ->setLocale($event->getLocale())
+            ->setTitle($event->getTitle())
+            ->setContent($event->getContent())
+            ->setStatus(self::toColumnInt($event->getStatus()))
+            ->setVerified(self::toColumnInt($event->isVerified()))
+            ->setRating(self::toColumnInt($event->getRating()))
+            ->setAbuse(self::toColumnInt($event->getAbuse()));
+
+        $this->commentRepository->save($comment);
+
+        $event->setComment($comment);
+
+        $this->dispatchRatingCompute(
+            $comment->getRef(),
+            $comment->getRefId()
+        );
     }
 
     public function delete(CommentDeleteEvent $event): void
@@ -198,53 +231,59 @@ class CommentAction implements EventSubscriberInterface
 
     public function statusChange(CommentChangeStatusEvent $event): void
     {
-        $changed = false;
+        $comment = $this->commentRepository->findById((int) $event->getId());
 
-        if (null !== $comment = CommentQuery::create()->findPk($event->getId())) {
-            if ($comment->getStatus() !== $event->getNewStatus()) {
-                $comment->setStatus($event->getNewStatus());
-                $comment->save();
-
-                $event->setComment($comment);
-
-                $this->dispatchRatingCompute(
-                    $comment->getRef(),
-                    $comment->getRefId()
-                );
-            }
+        // The caller answers the browser with $event->getComment(): a comment that is gone has
+        // to be said out loud, not left as a null for the caller to dereference.
+        if (null === $comment) {
+            throw new \InvalidArgumentException('Comment '.$event->getId().' does not exist');
         }
+
+        // Always carried, even when there is nothing to change: moderating the same row twice
+        // is a double click, not an error.
+        $event->setComment($comment);
+
+        if ($comment->getStatus() === $event->getNewStatus()) {
+            return;
+        }
+
+        $comment->setStatus($event->getNewStatus());
+        $this->commentRepository->save($comment);
+
+        $this->dispatchRatingCompute(
+            $comment->getRef(),
+            $comment->getRefId()
+        );
     }
 
     public function productRatingCompute(CommentComputeRatingEvent $event): void
     {
-        if ('product' === $event->getRef()) {
-            $product = ProductQuery::create()->findPk($event->getRefId());
-            if (null !== $product) {
-                $query = CommentQuery::create()
-                    ->filterByRef('product')
-                    ->filterByRefId($product->getId())
-                    ->filterByStatus(Comment::ACCEPTED)
-                    ->withColumn('AVG(RATING)', 'AVG_RATING')
-                    ->select('AVG_RATING');
-
-                $rating = $query->findOne();
-
-                if (null !== $rating) {
-                    // select() on a computed column hands back the raw driver value, a string
-                    // for an SQL AVG(): round() takes int|float only under strict types.
-                    $rating = round((float) $rating, 2);
-
-                    $event->setRating($rating);
-
-                    MetaDataQuery::setVal(
-                        Comment::META_KEY_RATING,
-                        MetaData::PRODUCT_KEY,
-                        $product->getId(),
-                        $rating
-                    );
-                }
-            }
+        // The literal, not MetaData::PRODUCT_KEY: reading a constant off a Propel model class
+        // loads its generated base, which only exists once the model tree has been built.
+        if ('product' !== $event->getRef()) {
+            return;
         }
+
+        $ref = (string) $event->getRef();
+        $refId = (int) $event->getRefId();
+
+        $aggregate = $this->commentRepository->acceptedRatingAggregate($ref, $refId);
+
+        // No accepted comment carries a rating any more: what was stored has to go, or the
+        // product page keeps showing an average built from comments nobody can read.
+        if (null === $aggregate['average']) {
+            $event->setRating(null);
+
+            $this->ratingMeta->clear($ref, $refId);
+
+            return;
+        }
+
+        $average = round($aggregate['average'], 2);
+
+        $event->setRating($average);
+
+        $this->ratingMeta->store($ref, $refId, $average, $aggregate['count']);
     }
 
     /**

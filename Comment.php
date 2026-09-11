@@ -15,8 +15,14 @@ declare(strict_types=1);
 
 namespace Comment;
 
+use Comment\Install\CommentSchemaUpgrade;
 use Comment\Model\CommentQuery;
+use Comment\Repository\CommentRepository;
+use Comment\Repository\CommentStorageInterface;
+use Comment\Repository\RatingMetaRepository;
+use Comment\Repository\RatingMetaStorageInterface;
 use Propel\Runtime\Connection\ConnectionInterface;
+use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use Thelia\Core\Translation\Translator;
 use Thelia\Core\Install\Database;
@@ -104,6 +110,10 @@ class Comment extends BaseModule
             self::setConfigValue('is_initialized', true);
         }
 
+        // A shop installed before the current schema needs what thelia.sql only gives to a
+        // first activation. Does nothing when the table is already up to date.
+        (new CommentSchemaUpgrade())->apply($con);
+
         $languages = LangQuery::create()->find();
         $this->loadEmailTranslations($languages);
 
@@ -168,6 +178,8 @@ class Comment extends BaseModule
 
     public function update($currentVersion, $newVersion, ?ConnectionInterface $con = null): void
     {
+        (new CommentSchemaUpgrade())->apply($con);
+
         $languages = LangQuery::create()->find();
         $this->loadEmailTranslations($languages);
 
@@ -314,11 +326,42 @@ class Comment extends BaseModule
         return $config;
     }
 
+    /**
+     * The budgets Comment\Service\Front\CommentPostLimiter spends on every posted comment.
+     *
+     * Declared here rather than in the shop's framework configuration so that activating the
+     * module is enough: a shop that lets anyone post gets the limit with it.
+     */
+    public static function configureContainer(ContainerConfigurator $containerConfigurator): void
+    {
+        $containerConfigurator->extension('framework', [
+            'rate_limiter' => [
+                'comment_post_per_client' => [
+                    'policy' => 'sliding_window',
+                    'limit' => 10,
+                    'interval' => '1 hour',
+                ],
+                'comment_post_per_element' => [
+                    'policy' => 'sliding_window',
+                    'limit' => 3,
+                    'interval' => '1 hour',
+                ],
+            ],
+        ], prepend: true);
+    }
+
     public static function configureServices(ServicesConfigurator $servicesConfigurator): void
     {
         $servicesConfigurator->load(self::getModuleCode().'\\', __DIR__)
-            ->exclude([__DIR__.'/I18n/*'])
+            // Tests/ is part of the tree load() walks: a test double implementing an
+            // autoconfigured interface would otherwise be registered as a real service.
+            ->exclude([__DIR__.'/I18n/*', __DIR__.'/Tests/*'])
             ->autowire(true)
             ->autoconfigure(true);
+
+        // load() registers services under their class name; autowiring an interface needs an
+        // alias of its own.
+        $servicesConfigurator->alias(CommentStorageInterface::class, CommentRepository::class);
+        $servicesConfigurator->alias(RatingMetaStorageInterface::class, RatingMetaRepository::class);
     }
 }

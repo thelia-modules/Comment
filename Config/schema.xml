@@ -16,11 +16,20 @@
         <column name="abuse" type="INTEGER" />
         <column name="locale" size="10" type="VARCHAR" />
         <behavior name="timestampable" />
-        <foreign-key foreignTable="customer" name="fk_comment_customer_id" onDelete="CASCADE" onUpdate="RESTRICT">
+        <foreign-key foreignTable="customer" name="fk_comment_customer_id" onDelete="SET NULL" onUpdate="RESTRICT">
             <reference foreign="id" local="customer_id" />
         </foreign-key>
         <index name="idx_comment_user_id">
             <index-column name="customer_id" />
+        </index>
+        <!-- The comments of one element: the only filter the product page has. -->
+        <index name="idx_comment_ref">
+            <index-column name="ref" />
+            <index-column name="ref_id" />
+        </index>
+        <!-- The moderation list and the status counters filter on this alone. -->
+        <index name="idx_comment_status">
+            <index-column name="status" />
         </index>
     </table>
     

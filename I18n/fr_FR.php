@@ -37,6 +37,7 @@ return array(
     'Request customer comment' => 'Demande commentaire client',
     'Send an email to request customer comments, x days after a paid order (0 = no request sent).' => 'Envoyer un email au client pour demander un avis, x jours après une commande payée (0 = aucune relance)',
     'Send an email to the store managers when a new comment is posted.' => 'Envoyer un email aux administrateurs de la boutique lorsqu\'un nouveau commentaire est posté.',
+    'Too many comments have been sent from here. Please try again later.' => 'Trop de commentaires ont été envoyés depuis cet accès. Veuillez réessayer plus tard.',
     'Sorry, an unknown error occurred. Please try again.' => 'Désolé, une erreur non gérée est apparue. Veuillez ré-essayer.',
     'Status' => 'Statut',
     'Thank you for submitting your comment.' => 'Merci pour votre commentaire.',

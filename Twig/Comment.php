@@ -21,7 +21,9 @@ use Comment\Form\AddCommentForm;
 use Comment\Model\Comment as CommentModel;
 use Comment\Repository\CommentRepository;
 use Comment\Service\Front\CommentDefinition;
+use Comment\Service\Front\CommentContentSanitizer;
 use Comment\Service\Front\CommentDefinitionResolver;
+use Comment\Service\Front\CommentPostLimiter;
 use Symfony\Component\Form\Form;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -94,6 +96,8 @@ class Comment
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly CommentDefinitionResolver $definitionResolver,
         private readonly CommentRepository $commentRepository,
+        private readonly CommentPostLimiter $postLimiter,
+        private readonly CommentContentSanitizer $sanitizer,
         private readonly RequestStack $requestStack,
         // Thelia's own Translator: the only one carrying the module catalogues. Twig's |trans
         // goes to the Symfony translator, which on the front office knows the theme catalogue
@@ -135,11 +139,13 @@ class Comment
     public function getComments(): array
     {
         return array_map(
-            static fn (CommentModel $comment): array => [
+            fn (CommentModel $comment): array => [
                 'id' => $comment->getId(),
-                'author' => $comment->getUsername(),
-                'title' => $comment->getTitle(),
-                'content' => $comment->getContent(),
+                // What a visitor typed, cleaned on its way out: the moderator sees the stored
+                // text, the shop shows text and nothing else.
+                'author' => $this->sanitizer->sanitize($comment->getUsername()),
+                'title' => $this->sanitizer->sanitize($comment->getTitle()),
+                'content' => $this->sanitizer->sanitize($comment->getContent()),
                 'rating' => $comment->getRating(),
                 'verified' => (bool) $comment->getVerified(),
                 'date' => $comment->getCreatedAt(),
@@ -193,11 +199,35 @@ class Comment
         return null === $rating ? null : (float) $rating;
     }
 
+    /**
+     * How many accepted comments carry a rating, stored alongside the average.
+     *
+     * Read rather than counted: a page listing forty products asks forty times, and the count
+     * shown next to the average has to be the number of ratings, not the number of comments.
+     */
+    public function getRatingCount(): ?int
+    {
+        $count = MetaDataQuery::getVal(CommentModel::META_KEY_RATING_COUNT, $this->ref, $this->refId);
+
+        return null === $count ? null : (int) $count;
+    }
+
     #[LiveAction]
     public function save(): void
     {
         $this->error = null;
         $this->feedback = null;
+
+        // First, before any query: a replayed action has to cost as little as possible.
+        if (!$this->postLimiter->allows($this->ref, $this->refId)) {
+            $this->error = $this->translator->trans(
+                'Too many comments have been sent from here. Please try again later.',
+                [],
+                CommentModule::MESSAGE_DOMAIN
+            );
+
+            return;
+        }
 
         $definition = $this->getDefinition();
 

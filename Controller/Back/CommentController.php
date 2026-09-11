@@ -40,6 +40,7 @@ use Comment\Model\CommentQuery;
 use Comment\Repository\CommentRepository;
 use Comment\Service\BackOffice\CommentListFilters;
 use Comment\Service\BackOffice\CommentListPresenter;
+use Comment\Service\BackOffice\CommentModerationLog;
 use Comment\Service\BackOffice\CommentStatusCatalog;
 use Exception;
 use Propel\Runtime\ActiveRecord\ActiveRecordInterface;
@@ -403,11 +404,26 @@ class CommentController extends AbstractCrudController
                 CommentEvents::COMMENT_STATUS_UPDATE
             );
 
+            $comment = $event->getComment();
+
+            if (null === $comment) {
+                throw new \RuntimeException('No comment was returned for id '.$id);
+            }
+
+            // Publishing a comment or taking it down is an administration decision: it goes in
+            // the log next to the rest of them.
+            $this->adminLogAppend(
+                AdminResources::MODULE,
+                AccessManager::UPDATE,
+                CommentModerationLog::statusChangeMessage((int) $id, (int) $status),
+                (int) $id
+            );
+
             $message = [
                 "success" => true,
                 "data" => [
                     'id' => $id,
-                    'status' => $event->getComment()->getStatus()
+                    'status' => $comment->getStatus()
                 ]
             ];
         } catch (\Exception $ex) {
@@ -472,6 +488,15 @@ class CommentController extends AbstractCrudController
             default:
                 // An unknown value changes nothing: the answer stays success: false.
                 break;
+        }
+
+        if ($message['success']) {
+            $this->adminLogAppend(
+                AdminResources::MODULE,
+                AccessManager::UPDATE,
+                CommentModerationLog::activationMessage($ref, $refId, (string) $status),
+                $refId
+            );
         }
 
         $message['status'] = MetaDataQuery::getVal(\Comment\Model\Comment::META_KEY_ACTIVATED, $ref, $refId, "-1");
