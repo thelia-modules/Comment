@@ -117,7 +117,24 @@ class CommentAction implements EventSubscriberInterface
 
     public function create(CommentCreateEvent $event): void
     {
-        $comment = new Comment();
+        $customerId = null === $event->getCustomerId() ? null : (int) $event->getCustomerId();
+
+        // One comment per customer and per element. A customer posting again on the same
+        // product is editing what they already said, so the row is rewritten in place: two
+        // rows would both weigh in the average and the shop would show the same buyer twice.
+        // The status comes from the event, which carries the moderation rule in force, so an
+        // edited comment goes back through moderation instead of staying published.
+        $comment = null === $customerId
+            ? null
+            : $this->commentRepository->findOneByCustomerAndReference(
+                $customerId,
+                (string) $event->getRef(),
+                (int) $event->getRefId()
+            );
+
+        $previousStatus = $comment?->getStatus();
+
+        $comment ??= new Comment();
 
         $comment
             ->setRef($event->getRef())
@@ -131,12 +148,17 @@ class CommentAction implements EventSubscriberInterface
             ->setStatus(self::toColumnInt($event->getStatus()))
             ->setVerified(self::toColumnInt($event->isVerified()))
             ->setRating(self::toColumnInt($event->getRating()))
-            ->setAbuse(self::toColumnInt($event->getAbuse()))
-            ->save();
+            // An edit must not wipe the abuse reports the comment already collected: the
+            // front never sends that counter.
+            ->setAbuse(self::toColumnInt($event->getAbuse()) ?? $comment->getAbuse());
+
+        $this->commentRepository->save($comment);
 
         $event->setComment($comment);
 
-        if (Comment::ACCEPTED === $comment->getStatus()) {
+        // Recompute when the comment is live, and also when a published one has just gone
+        // back to moderation: the average has to lose it.
+        if (Comment::ACCEPTED === $comment->getStatus() || Comment::ACCEPTED === $previousStatus) {
             $this->dispatchRatingCompute(
                 $comment->getRef(),
                 $comment->getRefId()

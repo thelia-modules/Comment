@@ -70,6 +70,6 @@ final class TestHarnessTest extends TestCase
         $comment->setRef('product')->setRefId(11)->save();
 
         self::assertSame(1, $comment->saveCount);
-        self::assertNotNull($comment->getId());
+        self::assertFalse($comment->isNew());
     }
 }

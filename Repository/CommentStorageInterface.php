@@ -28,5 +28,11 @@ interface CommentStorageInterface
 {
     public function findById(int $id): ?Comment;
 
+    /**
+     * The comment this customer already left on this element, if any: the most recent one,
+     * whatever its moderation status.
+     */
+    public function findOneByCustomerAndReference(int $customerId, string $ref, int $refId): ?Comment;
+
     public function save(Comment $comment): void;
 }

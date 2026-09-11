@@ -43,9 +43,31 @@ final class InMemoryCommentStorage implements CommentStorageInterface
         }
     }
 
+    /** @return array<int, Comment> */
+    public function rows(): array
+    {
+        return $this->rows;
+    }
+
     public function findById(int $id): ?Comment
     {
         return $this->rows[$id] ?? null;
+    }
+
+    public function findOneByCustomerAndReference(int $customerId, string $ref, int $refId): ?Comment
+    {
+        $found = null;
+
+        foreach ($this->rows as $comment) {
+            if ($customerId === $comment->getCustomerId()
+                && $ref === $comment->getRef()
+                && $refId === $comment->getRefId()
+            ) {
+                $found = $comment;
+            }
+        }
+
+        return $found;
     }
 
     public function save(Comment $comment): void

@@ -246,11 +246,7 @@ class Comment
     public function save(?object $con = null): int
     {
         ++$this->saveCount;
-
-        if ($this->new) {
-            $this->id ??= 1;
-            $this->new = false;
-        }
+        $this->new = false;
 
         return 1;
     }

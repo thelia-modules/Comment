@@ -34,6 +34,16 @@ final readonly class CommentRepository implements CommentStorageInterface
         return CommentQuery::create()->findPk($id);
     }
 
+    public function findOneByCustomerAndReference(int $customerId, string $ref, int $refId): ?Comment
+    {
+        return CommentQuery::create()
+            ->filterByCustomerId($customerId)
+            ->filterByRef($ref)
+            ->filterByRefId($refId)
+            ->orderById(Criteria::DESC)
+            ->findOne();
+    }
+
     public function save(Comment $comment): void
     {
         $comment->save();
