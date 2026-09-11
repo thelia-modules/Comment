@@ -44,7 +44,7 @@ use Comment\Events\CommentUpdateEvent;
 use Comment\Exception\InvalidDefinitionException;
 use Comment\Model\Comment;
 use Comment\Model\CommentQuery;
-use Comment\Repository\CommentRepository;
+use Comment\Repository\CommentStorageInterface;
 use Propel\Runtime\ActiveQuery\Criteria;
 use Propel\Runtime\ActiveQuery\Join;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -89,10 +89,10 @@ class CommentAction implements EventSubscriberInterface
     /** @var EventDispatcherInterface|null */
     protected $dispatcher;
 
-    /** @var CommentRepository|null */
+    /** @var CommentStorageInterface|null */
     protected $commentRepository;
 
-    public function __construct(TranslatorInterface $translator, ParserInterface $parser, MailerFactory $mailer, EventDispatcherInterface $dispatcher, CommentRepository $commentRepository)
+    public function __construct(TranslatorInterface $translator, ParserInterface $parser, MailerFactory $mailer, EventDispatcherInterface $dispatcher, CommentStorageInterface $commentRepository)
     {
         $this->translator = $translator;
         $this->parser = $parser;
@@ -146,28 +146,34 @@ class CommentAction implements EventSubscriberInterface
 
     public function update(CommentUpdateEvent $event): void
     {
-        if (null !== $comment = CommentQuery::create()->findPk($event->getId())) {
-            $comment
-                ->setRef($event->getRef())
-                ->setRefId($event->getRefId())
-                ->setCustomerId($event->getUsername() ? null : $event->getCustomerId())
-                ->setUsername($event->getUsername())
-                ->setEmail($event->getEmail())
-                ->setLocale($event->getLocale())
-                ->setTitle($event->getTitle())
-                ->setContent($event->getContent())
-                ->setStatus(self::toColumnInt($event->getStatus()))
-                ->setVerified(self::toColumnInt($event->isVerified()))
-                ->setRating(self::toColumnInt($event->getRating()))
-                ->setAbuse(self::toColumnInt($event->getAbuse()))
-                ->save();
-            $event->setComment($comment);
+        $comment = $this->commentRepository->findById((int) $event->getId());
 
-            $this->dispatchRatingCompute(
-                $comment->getRef(),
-                $comment->getRefId()
-            );
+        if (null === $comment) {
+            return;
         }
+
+        $comment
+            ->setRef($event->getRef())
+            ->setRefId($event->getRefId())
+            ->setCustomerId($event->getCustomerId())
+            ->setUsername($event->getUsername())
+            ->setEmail($event->getEmail())
+            ->setLocale($event->getLocale())
+            ->setTitle($event->getTitle())
+            ->setContent($event->getContent())
+            ->setStatus(self::toColumnInt($event->getStatus()))
+            ->setVerified(self::toColumnInt($event->isVerified()))
+            ->setRating(self::toColumnInt($event->getRating()))
+            ->setAbuse(self::toColumnInt($event->getAbuse()));
+
+        $this->commentRepository->save($comment);
+
+        $event->setComment($comment);
+
+        $this->dispatchRatingCompute(
+            $comment->getRef(),
+            $comment->getRefId()
+        );
     }
 
     public function delete(CommentDeleteEvent $event): void

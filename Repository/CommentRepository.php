@@ -25,13 +25,18 @@ use Thelia\Model\MetaData;
  * The Smarty back-office read its rows through {loop type="comment"}; the Twig back-office
  * has no loops, so the controller asks this repository and hands the result to the template.
  */
-final readonly class CommentRepository
+final readonly class CommentRepository implements CommentStorageInterface
 {
     public const DEFAULT_ORDER = 'created_reverse';
 
     public function findById(int $id): ?Comment
     {
         return CommentQuery::create()->findPk($id);
+    }
+
+    public function save(Comment $comment): void
+    {
+        $comment->save();
     }
 
     /**

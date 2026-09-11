@@ -16,6 +16,8 @@ declare(strict_types=1);
 namespace Comment;
 
 use Comment\Model\CommentQuery;
+use Comment\Repository\CommentRepository;
+use Comment\Repository\CommentStorageInterface;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use Thelia\Core\Translation\Translator;
@@ -322,5 +324,9 @@ class Comment extends BaseModule
             ->exclude([__DIR__.'/I18n/*', __DIR__.'/Tests/*'])
             ->autowire(true)
             ->autoconfigure(true);
+
+        // load() registers services under their class name; autowiring an interface needs an
+        // alias of its own.
+        $servicesConfigurator->alias(CommentStorageInterface::class, CommentRepository::class);
     }
 }
