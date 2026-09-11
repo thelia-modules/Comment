@@ -317,7 +317,9 @@ class Comment extends BaseModule
     public static function configureServices(ServicesConfigurator $servicesConfigurator): void
     {
         $servicesConfigurator->load(self::getModuleCode().'\\', __DIR__)
-            ->exclude([__DIR__.'/I18n/*'])
+            // Tests/ is part of the tree load() walks: a test double implementing an
+            // autoconfigured interface would otherwise be registered as a real service.
+            ->exclude([__DIR__.'/I18n/*', __DIR__.'/Tests/*'])
             ->autowire(true)
             ->autoconfigure(true);
     }
