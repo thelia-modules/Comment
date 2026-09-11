@@ -22,6 +22,7 @@ use Comment\Model\Comment as CommentModel;
 use Comment\Repository\CommentRepository;
 use Comment\Service\Front\CommentDefinition;
 use Comment\Service\Front\CommentDefinitionResolver;
+use Comment\Service\Front\CommentPostLimiter;
 use Symfony\Component\Form\Form;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -94,6 +95,7 @@ class Comment
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly CommentDefinitionResolver $definitionResolver,
         private readonly CommentRepository $commentRepository,
+        private readonly CommentPostLimiter $postLimiter,
         private readonly RequestStack $requestStack,
         // Thelia's own Translator: the only one carrying the module catalogues. Twig's |trans
         // goes to the Symfony translator, which on the front office knows the theme catalogue
@@ -211,6 +213,17 @@ class Comment
     {
         $this->error = null;
         $this->feedback = null;
+
+        // First, before any query: a replayed action has to cost as little as possible.
+        if (!$this->postLimiter->allows($this->ref, $this->refId)) {
+            $this->error = $this->translator->trans(
+                'Too many comments have been sent from here. Please try again later.',
+                [],
+                CommentModule::MESSAGE_DOMAIN
+            );
+
+            return;
+        }
 
         $definition = $this->getDefinition();
 

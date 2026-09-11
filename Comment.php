@@ -21,6 +21,7 @@ use Comment\Repository\CommentStorageInterface;
 use Comment\Repository\RatingMetaRepository;
 use Comment\Repository\RatingMetaStorageInterface;
 use Propel\Runtime\Connection\ConnectionInterface;
+use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use Thelia\Core\Translation\Translator;
 use Thelia\Core\Install\Database;
@@ -316,6 +317,30 @@ class Comment extends BaseModule
         ];
 
         return $config;
+    }
+
+    /**
+     * The budgets Comment\Service\Front\CommentPostLimiter spends on every posted comment.
+     *
+     * Declared here rather than in the shop's framework configuration so that activating the
+     * module is enough: a shop that lets anyone post gets the limit with it.
+     */
+    public static function configureContainer(ContainerConfigurator $containerConfigurator): void
+    {
+        $containerConfigurator->extension('framework', [
+            'rate_limiter' => [
+                'comment_post_per_client' => [
+                    'policy' => 'sliding_window',
+                    'limit' => 10,
+                    'interval' => '1 hour',
+                ],
+                'comment_post_per_element' => [
+                    'policy' => 'sliding_window',
+                    'limit' => 3,
+                    'interval' => '1 hour',
+                ],
+            ],
+        ], prepend: true);
     }
 
     public static function configureServices(ServicesConfigurator $servicesConfigurator): void

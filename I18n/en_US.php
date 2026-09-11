@@ -30,6 +30,7 @@ return array(
     'Ref Id' => 'Ref Id',
     'Reference %ref is not allowed' => 'Reference %ref is not allowed',
     'Send an email to the store managers when a new comment is posted.' => 'Send an email to the store managers when a new comment is posted.',
+    'Too many comments have been sent from here. Please try again later.' => 'Too many comments have been sent from here. Please try again later.',
     'Sorry, an unknown error occurred. Please try again.' => 'Sorry, an unknown error occurred. Please try again.',
     'Status' => 'Status',
     'Thank you for submitting your comment.' => 'Thank you for submitting your comment.',
