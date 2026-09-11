@@ -92,9 +92,7 @@ class CommentCreationForm extends BaseForm
                 ]
             ])
             ->add('content', TextType::class, [
-                'constraints' => [
-                    new NotBlank()
-                ],
+                'constraints' => CommentContentConstraints::all(),
                 'label' => $this->trans('Content'),
                 'label_attr' => [
                     'for' => 'content'
