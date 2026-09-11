@@ -34,6 +34,14 @@ interface CommentStorageInterface
      */
     public function findOneByCustomerAndReference(int $customerId, string $ref, int $refId): ?Comment;
 
+    /**
+     * Every comment of one customer, whatever its moderation status: what their personal data
+     * export has to carry, and what anonymizing their account has to go through.
+     *
+     * @return list<Comment>
+     */
+    public function findByCustomer(int $customerId): array;
+
     public function save(Comment $comment): void;
 
     /**

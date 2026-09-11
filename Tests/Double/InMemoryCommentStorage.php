@@ -81,6 +81,17 @@ final class InMemoryCommentStorage implements CommentStorageInterface
         return $this->aggregate;
     }
 
+    /**
+     * @return list<Comment>
+     */
+    public function findByCustomer(int $customerId): array
+    {
+        return array_values(array_filter(
+            $this->rows,
+            static fn (Comment $comment): bool => $customerId === $comment->getCustomerId(),
+        ));
+    }
+
     public function save(Comment $comment): void
     {
         $comment->save();
