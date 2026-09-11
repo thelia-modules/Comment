@@ -29,6 +29,8 @@ return array(
     'Product' => 'Produit',
     'Product %id does not exist' => 'Le produit %id n\'existe pas',
     'Rating' => 'Note',
+    'Rating scale' => 'Échelle de notation',
+    'How many stars a comment may be rated out of. 5 by default.' => 'Nombre d\'étoiles sur lequel un commentaire peut être noté. 5 par défaut.',
     'Ref' => 'Réf',
     'Ref Id' => 'Réf id',
     'Reference %ref is not allowed' => 'La référence %ref n\'est pas autorisée',

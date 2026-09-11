@@ -44,11 +44,7 @@ class AddCommentForm extends BaseForm
 
     protected function buildForm()
     {
-        $maxRating = (int) ConfigQuery::read('comment_max_rating', RatingType::DEFAULT_MAX);
-
-        if ($maxRating < 1) {
-            $maxRating = RatingType::DEFAULT_MAX;
-        }
+        $maxRating = RatingType::scaleFrom(ConfigQuery::read('comment_max_rating'));
 
         $this->formBuilder
             ->add('username', TextType::class, [

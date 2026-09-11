@@ -15,9 +15,9 @@ namespace Comment\Api\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Comment\Api\Resource\Comment as CommentResource;
-use Comment\Comment as CommentModule;
 use Comment\Events\CommentCreateEvent;
 use Comment\Events\CommentEvents;
+use Comment\Form\Field\RatingType;
 use Comment\Model\Comment as CommentModel;
 use Comment\Service\Api\CommentPayloadMapper;
 use Comment\Service\Front\CommentDefinitionResolverInterface;
@@ -128,7 +128,7 @@ final readonly class CommentPostProcessor implements ProcessorInterface
 
     private function maxRating(): int
     {
-        return (int) ConfigQuery::read('comment_max_rating', (string) CommentModule::CONFIG_MAX_RATING);
+        return RatingType::scaleFrom(ConfigQuery::read('comment_max_rating'));
     }
 
     private function customer(): ?Customer

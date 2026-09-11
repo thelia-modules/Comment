@@ -36,6 +36,7 @@ use Comment\Form\AddCommentForm;
 use Comment\Form\CommentCreationForm;
 use Comment\Form\CommentModificationForm;
 use Comment\Form\ConfigurationForm;
+use Comment\Form\Field\RatingType;
 use Comment\Model\CommentQuery;
 use Comment\Repository\CommentRepository;
 use Comment\Service\BackOffice\CommentListFilters;
@@ -544,6 +545,10 @@ class CommentController extends AbstractCrudController
             ConfigQuery::write(
                 'comment_only_verified',
                 $data['only_verified'] ? '1' : '0'
+            );
+            ConfigQuery::write(
+                'comment_max_rating',
+                (string) RatingType::scaleFrom($data['max_rating'])
             );
             ConfigQuery::write(
                 'comment_request_customer_ttl',

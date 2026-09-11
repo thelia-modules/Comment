@@ -18,6 +18,7 @@ use Comment\Comment as CommentModule;
 use Comment\Events\CommentCreateEvent;
 use Comment\Events\CommentEvents;
 use Comment\Form\AddCommentForm;
+use Comment\Form\Field\RatingType;
 use Comment\Model\Comment as CommentModel;
 use Comment\Repository\CommentRepository;
 use Comment\Service\Front\CommentAbuseGuard;
@@ -355,8 +356,11 @@ class Comment
             ->getForm();
     }
 
-    public function getMaxRating()
+    /**
+     * The scale the block draws its stars on. Never zero: see RatingType::scaleFrom().
+     */
+    public function getMaxRating(): int
     {
-        return ConfigQuery::read('comment_max_rating', 0);
+        return RatingType::scaleFrom(ConfigQuery::read('comment_max_rating'));
     }
 }

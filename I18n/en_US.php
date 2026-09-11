@@ -26,6 +26,8 @@ return array(
     'Only verified' => 'Only verified',
     'Product %id does not exist' => 'Product %id does not exist',
     'Rating' => 'Rating',
+    'Rating scale' => 'Rating scale',
+    'How many stars a comment may be rated out of. 5 by default.' => 'How many stars a comment may be rated out of. 5 by default.',
     'Ref' => 'Ref',
     'Ref Id' => 'Ref Id',
     'Reference %ref is not allowed' => 'Reference %ref is not allowed',
