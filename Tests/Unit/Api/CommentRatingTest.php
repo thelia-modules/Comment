@@ -1,0 +1,114 @@
+<?php
+
+declare(strict_types=1);
+
+/*************************************************************************************/
+/*      This file is part of the Thelia package.                                     */
+/*                                                                                   */
+/*      Copyright (c) OpenStudio                                                     */
+/*      email : dev@thelia.net                                                       */
+/*      web : http://www.thelia.net                                                  */
+/*                                                                                   */
+/*      For the full copyright and license information, please view the LICENSE.txt  */
+/*************************************************************************************/
+
+namespace Comment\Tests\Unit\Api;
+
+use Comment\Api\Resource\Addon\CommentRating;
+use Comment\Service\Api\RatingSnapshot;
+use PHPUnit\Framework\TestCase;
+use Thelia\Api\Resource\Product;
+
+/**
+ * The two fields the product resource of the front API gains.
+ *
+ * A theme reads them to decide whether to draw stars at all, so the state "no accepted
+ * comment" has to come out as a null average and not as a zero: a product nobody rated
+ * would otherwise be shown as rated zero out of five.
+ */
+final class CommentRatingTest extends TestCase
+{
+    public function testItExtendsTheProductResource(): void
+    {
+        self::assertSame(Product::class, CommentRating::getResourceParent());
+    }
+
+    public function testTheTwoFieldsAreReadableOnTheFront(): void
+    {
+        $groups = [];
+
+        foreach (['ratingAverage', 'ratingCount'] as $property) {
+            $attributes = (new \ReflectionProperty(CommentRating::class, $property))
+                ->getAttributes(\Symfony\Component\Serializer\Annotation\Groups::class);
+
+            self::assertCount(1, $attributes, \sprintf('%s carries no serialization group', $property));
+
+            $groups[$property] = $attributes[0]->getArguments()[0];
+        }
+
+        foreach ($groups as $property => $propertyGroups) {
+            self::assertContains(
+                Product::GROUP_FRONT_READ,
+                $propertyGroups,
+                \sprintf('%s is missing from the front collection read group, so a product list would not carry it', $property)
+            );
+            self::assertContains(
+                Product::GROUP_FRONT_READ_SINGLE,
+                $propertyGroups,
+                \sprintf('%s is missing from the front single read group', $property)
+            );
+        }
+    }
+
+    public function testAnElementWithRatingsCarriesTheStoredValues(): void
+    {
+        $addon = (new CommentRating())->fromSnapshot(new RatingSnapshot(4.5, 2));
+
+        self::assertSame(4.5, $addon->ratingAverage);
+        self::assertSame(2, $addon->ratingCount);
+    }
+
+    public function testAnElementWithoutRatingsCarriesNullAndZero(): void
+    {
+        $addon = (new CommentRating())->fromSnapshot(RatingSnapshot::none());
+
+        self::assertNull($addon->ratingAverage, 'The average of an unrated element must be null, never 0');
+        self::assertSame(0, $addon->ratingCount);
+    }
+
+    public function testTheDefaultsAreAlreadyTheUnratedState(): void
+    {
+        // The bridge builds the addon with `new` and only fills it when the groups are read:
+        // whatever happens, the payload must not claim a rating of zero.
+        $addon = new CommentRating();
+
+        self::assertNull($addon->ratingAverage);
+        self::assertSame(0, $addon->ratingCount);
+    }
+
+    /**
+     * The relation is polymorphic (`ref` / `ref_id` on the comment table, and the average
+     * lives in `meta_data`), so there is no foreign key for the trait to join on: its
+     * default extendQuery() throws, and this one has to stay a no-op.
+     */
+    public function testExtendQueryIsNeutralised(): void
+    {
+        $query = $this->createStub(\Propel\Runtime\ActiveQuery\ModelCriteria::class);
+
+        CommentRating::extendQuery($query);
+
+        self::assertNull(CommentRating::getPropelRelatedTableMap());
+    }
+
+    public function testItNeverWritesThroughTheProductResource(): void
+    {
+        $addon = new CommentRating();
+        $record = $this->createStub(\Propel\Runtime\ActiveRecord\ActiveRecordInterface::class);
+        $resource = $this->createStub(\Thelia\Api\Resource\PropelResourceInterface::class);
+
+        $addon->doSave($record, $resource);
+        $addon->doDelete($record, $resource);
+
+        self::assertSame(0, $addon->ratingCount);
+    }
+}
