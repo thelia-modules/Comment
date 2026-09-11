@@ -16,6 +16,7 @@ namespace Comment\Tests\Unit\Action;
 
 use Comment\Action\CommentAction;
 use Comment\Tests\Double\InMemoryCommentStorage;
+use Comment\Tests\Double\InMemoryRatingMetaStorage;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -32,11 +33,14 @@ abstract class CommentActionTestCase extends TestCase
 {
     protected InMemoryCommentStorage $storage;
 
+    protected InMemoryRatingMetaStorage $ratingMeta;
+
     protected EventDispatcher $dispatcher;
 
     protected function setUp(): void
     {
         $this->storage = new InMemoryCommentStorage();
+        $this->ratingMeta = new InMemoryRatingMetaStorage();
         $this->dispatcher = new EventDispatcher();
     }
 
@@ -51,6 +55,7 @@ abstract class CommentActionTestCase extends TestCase
             $this->createMock(MailerFactory::class),
             $this->dispatcher,
             $this->storage,
+            $this->ratingMeta,
         );
     }
 }

@@ -45,6 +45,7 @@ use Comment\Exception\InvalidDefinitionException;
 use Comment\Model\Comment;
 use Comment\Model\CommentQuery;
 use Comment\Repository\CommentStorageInterface;
+use Comment\Repository\RatingMetaStorageInterface;
 use Propel\Runtime\ActiveQuery\Criteria;
 use Propel\Runtime\ActiveQuery\Join;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -92,13 +93,17 @@ class CommentAction implements EventSubscriberInterface
     /** @var CommentStorageInterface|null */
     protected $commentRepository;
 
-    public function __construct(TranslatorInterface $translator, ParserInterface $parser, MailerFactory $mailer, EventDispatcherInterface $dispatcher, CommentStorageInterface $commentRepository)
+    /** @var RatingMetaStorageInterface|null */
+    protected $ratingMeta;
+
+    public function __construct(TranslatorInterface $translator, ParserInterface $parser, MailerFactory $mailer, EventDispatcherInterface $dispatcher, CommentStorageInterface $commentRepository, RatingMetaStorageInterface $ratingMeta)
     {
         $this->translator = $translator;
         $this->parser = $parser;
         $this->mailer = $mailer;
         $this->dispatcher = $dispatcher;
         $this->commentRepository = $commentRepository;
+        $this->ratingMeta = $ratingMeta;
     }
 
     /**
@@ -253,34 +258,32 @@ class CommentAction implements EventSubscriberInterface
 
     public function productRatingCompute(CommentComputeRatingEvent $event): void
     {
-        if ('product' === $event->getRef()) {
-            $product = ProductQuery::create()->findPk($event->getRefId());
-            if (null !== $product) {
-                $query = CommentQuery::create()
-                    ->filterByRef('product')
-                    ->filterByRefId($product->getId())
-                    ->filterByStatus(Comment::ACCEPTED)
-                    ->withColumn('AVG(RATING)', 'AVG_RATING')
-                    ->select('AVG_RATING');
-
-                $rating = $query->findOne();
-
-                if (null !== $rating) {
-                    // select() on a computed column hands back the raw driver value, a string
-                    // for an SQL AVG(): round() takes int|float only under strict types.
-                    $rating = round((float) $rating, 2);
-
-                    $event->setRating($rating);
-
-                    MetaDataQuery::setVal(
-                        Comment::META_KEY_RATING,
-                        MetaData::PRODUCT_KEY,
-                        $product->getId(),
-                        $rating
-                    );
-                }
-            }
+        // The literal, not MetaData::PRODUCT_KEY: reading a constant off a Propel model class
+        // loads its generated base, which only exists once the model tree has been built.
+        if ('product' !== $event->getRef()) {
+            return;
         }
+
+        $ref = (string) $event->getRef();
+        $refId = (int) $event->getRefId();
+
+        $aggregate = $this->commentRepository->acceptedRatingAggregate($ref, $refId);
+
+        // No accepted comment carries a rating any more: what was stored has to go, or the
+        // product page keeps showing an average built from comments nobody can read.
+        if (null === $aggregate['average']) {
+            $event->setRating(null);
+
+            $this->ratingMeta->clear($ref, $refId);
+
+            return;
+        }
+
+        $average = round($aggregate['average'], 2);
+
+        $event->setRating($average);
+
+        $this->ratingMeta->store($ref, $refId, $average, $aggregate['count']);
     }
 
     /**

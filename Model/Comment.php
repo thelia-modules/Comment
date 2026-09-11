@@ -12,5 +12,6 @@ class Comment extends BaseComment
     const ABUSED = 3;
 
     const META_KEY_RATING = 'COMMENT_RATING';
+    const META_KEY_RATING_COUNT = 'COMMENT_RATING_COUNT';
     const META_KEY_ACTIVATED = 'COMMENT_ACTIVATED';
 }

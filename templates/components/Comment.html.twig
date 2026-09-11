@@ -14,11 +14,14 @@
     <header class="Comment-header">
         <h2 class="h2 text-black">{{ labels.title }}</h2>
         {% if this.total > 0 %}
+            {# The stored number of ratings, which is what the average is built on. Falls back
+               to the number of comments on a shop whose average has not been recomputed yet. #}
+            {% set ratingCount = this.ratingCount ?? this.total %}
             <p class="paragraph-4 text-grey">
                 {% if this.averageRating is not null %}
                     <span class="Comment-average">{{ labels.total }} {{ this.averageRating }}/{{ maxRating }}</span>
                 {% endif %}
-                <span>({{ this.total }} {{ this.total > 1 ? labels.ratings : labels.rating }})</span>
+                <span>({{ ratingCount }} {{ ratingCount > 1 ? labels.ratings : labels.rating }})</span>
             </p>
         {% endif %}
     </header>

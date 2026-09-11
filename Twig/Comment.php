@@ -193,6 +193,19 @@ class Comment
         return null === $rating ? null : (float) $rating;
     }
 
+    /**
+     * How many accepted comments carry a rating, stored alongside the average.
+     *
+     * Read rather than counted: a page listing forty products asks forty times, and the count
+     * shown next to the average has to be the number of ratings, not the number of comments.
+     */
+    public function getRatingCount(): ?int
+    {
+        $count = MetaDataQuery::getVal(CommentModel::META_KEY_RATING_COUNT, $this->ref, $this->refId);
+
+        return null === $count ? null : (int) $count;
+    }
+
     #[LiveAction]
     public function save(): void
     {

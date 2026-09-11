@@ -35,4 +35,14 @@ interface CommentStorageInterface
     public function findOneByCustomerAndReference(int $customerId, string $ref, int $refId): ?Comment;
 
     public function save(Comment $comment): void;
+
+    /**
+     * Average rating and number of ratings over the accepted comments of an element.
+     *
+     * The average is null when no accepted comment carries a rating, which is exactly the
+     * state that has to erase what was stored rather than leave it behind.
+     *
+     * @return array{average: float|null, count: int}
+     */
+    public function acceptedRatingAggregate(string $ref, int $refId): array;
 }

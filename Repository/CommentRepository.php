@@ -50,6 +50,32 @@ final readonly class CommentRepository implements CommentStorageInterface
     }
 
     /**
+     * @return array{average: float|null, count: int}
+     */
+    public function acceptedRatingAggregate(string $ref, int $refId): array
+    {
+        $row = CommentQuery::create()
+            ->filterByRef($ref)
+            ->filterByRefId($refId)
+            ->filterByStatus(Comment::ACCEPTED)
+            ->withColumn('AVG(RATING)', 'AVG_RATING')
+            ->withColumn('COUNT(RATING)', 'RATING_COUNT')
+            ->select(['AVG_RATING', 'RATING_COUNT'])
+            ->findOne();
+
+        // One row always comes back from an aggregate, with a null average when there is
+        // nothing to average. select() on a computed column hands back the raw driver value,
+        // a string for an SQL AVG().
+        $average = \is_array($row) ? $row['AVG_RATING'] : null;
+        $count = \is_array($row) ? $row['RATING_COUNT'] : 0;
+
+        return [
+            'average' => null === $average ? null : (float) $average,
+            'count' => (int) $count,
+        ];
+    }
+
+    /**
      * @return array{items: list<Comment>, total: int}
      */
     public function search(

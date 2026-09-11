@@ -33,6 +33,9 @@ final class InMemoryCommentStorage implements CommentStorageInterface
 
     private int $nextId = 1;
 
+    /** @var array{average: float|null, count: int} what the aggregate query would answer */
+    public array $aggregate = ['average' => null, 'count' => 0];
+
     public function store(Comment ...$comments): void
     {
         foreach ($comments as $comment) {
@@ -68,6 +71,14 @@ final class InMemoryCommentStorage implements CommentStorageInterface
         }
 
         return $found;
+    }
+
+    /**
+     * @return array{average: float|null, count: int}
+     */
+    public function acceptedRatingAggregate(string $ref, int $refId): array
+    {
+        return $this->aggregate;
     }
 
     public function save(Comment $comment): void
