@@ -1,6 +1,7 @@
 <?php
 
 return array(
+    'Best rated' => 'Best rated',
     'Abuse' => 'Abuse',
     'Activated' => 'Activated',
     'Allowed references' => 'Allowed references',

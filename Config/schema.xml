@@ -2,7 +2,7 @@
 <database defaultIdMethod="native" name="TheliaMain" namespace="Comment\Model">
 
     <table name="comment">
-        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER" />                
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER" />
         <column name="username" size="255" type="VARCHAR" />
         <column name="customer_id" type="INTEGER" />
         <column name="ref" size="255" type="VARCHAR" />
@@ -31,7 +31,13 @@
         <index name="idx_comment_status">
             <index-column name="status" />
         </index>
+        <!-- The rating average of one element: the status narrows the rows the sum reads. -->
+        <index name="idx_comment_ref_status">
+            <index-column name="ref" />
+            <index-column name="ref_id" />
+            <index-column name="status" />
+        </index>
     </table>
-    
+
     <external-schema filename="local/config/schema.xml" referenceOnly="true" />
 </database>
