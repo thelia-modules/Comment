@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*************************************************************************************/
 /*      This file is part of the Thelia package.                                     */
 /*                                                                                   */
@@ -11,12 +13,9 @@
 /*      file that was distributed with this source code.                             */
 /*************************************************************************************/
 
-declare(strict_types=1);
-
 namespace Comment;
 
 use Comment\Install\CommentSchemaUpgrade;
-use Comment\Model\CommentQuery;
 use Comment\Repository\CommentRepository;
 use Comment\Repository\CommentStorageInterface;
 use Comment\Repository\RatingMetaRepository;
@@ -24,10 +23,11 @@ use Comment\Repository\RatingMetaStorageInterface;
 use Comment\Service\Front\CommentDefinitionResolver;
 use Comment\Service\Front\CommentDefinitionResolverInterface;
 use Propel\Runtime\Connection\ConnectionInterface;
+use Propel\Runtime\Propel;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
-use Thelia\Core\Translation\Translator;
 use Thelia\Core\Install\Database;
+use Thelia\Core\Translation\Translator;
 use Thelia\Model\ConfigQuery;
 use Thelia\Model\Lang;
 use Thelia\Model\LangQuery;
@@ -36,16 +36,15 @@ use Thelia\Model\MessageQuery;
 use Thelia\Module\BaseModule;
 
 /**
- * Class Comment
- * @package Comment
+ * Class Comment.
  *
  * @author Michaël Espeche <michael.espeche@gmail.com>
  * @author Julien Chanséaume <jchanseaume@openstudio.fr>
  */
 class Comment extends BaseModule
 {
-    public const MESSAGE_DOMAIN = "comment";
-    public const MESSAGE_DOMAIN_EMAIL = "comment.email.default";
+    public const MESSAGE_DOMAIN = 'comment';
+    public const MESSAGE_DOMAIN_EMAIL = 'comment.email.default';
 
     /**  Use comment */
     public const CONFIG_ACTIVATED = 1;
@@ -80,47 +79,49 @@ class Comment extends BaseModule
     {
         // Config
         if (null === ConfigQuery::read('comment_activated')) {
-            ConfigQuery::write('comment_activated', Comment::CONFIG_ACTIVATED);
+            ConfigQuery::write('comment_activated', self::CONFIG_ACTIVATED);
         }
 
         if (null === ConfigQuery::read('comment_moderate')) {
-            ConfigQuery::write('comment_moderate', Comment::CONFIG_MODERATE);
+            ConfigQuery::write('comment_moderate', self::CONFIG_MODERATE);
         }
 
         if (null === ConfigQuery::read('comment_ref_allowed')) {
-            ConfigQuery::write('comment_ref_allowed', Comment::CONFIG_REF_ALLOWED);
+            ConfigQuery::write('comment_ref_allowed', self::CONFIG_REF_ALLOWED);
         }
 
         if (null === ConfigQuery::read('comment_only_customer')) {
-            ConfigQuery::write('comment_only_customer', Comment::CONFIG_ONLY_CUSTOMER);
+            ConfigQuery::write('comment_only_customer', self::CONFIG_ONLY_CUSTOMER);
         }
 
         if (null === ConfigQuery::read('comment_only_verified')) {
-            ConfigQuery::write('comment_only_verified', Comment::CONFIG_ONLY_VERIFIED);
+            ConfigQuery::write('comment_only_verified', self::CONFIG_ONLY_VERIFIED);
         }
 
         if (null === ConfigQuery::read('comment_request_customer_ttl')) {
-            ConfigQuery::write('comment_request_customer_ttl', Comment::CONFIG_REQUEST_CUSTOMMER_TTL);
+            ConfigQuery::write('comment_request_customer_ttl', self::CONFIG_REQUEST_CUSTOMMER_TTL);
         }
 
         if (null === ConfigQuery::read('comment_notify_admin_new_comment')) {
-            ConfigQuery::write('comment_notify_admin_new_comment', Comment::CONFIG_NOTIFY_ADMIN_NEW_COMMENT);
+            ConfigQuery::write('comment_notify_admin_new_comment', self::CONFIG_NOTIFY_ADMIN_NEW_COMMENT);
         }
 
         if (null === ConfigQuery::read('comment_max_rating')) {
-            ConfigQuery::write('comment_max_rating', Comment::CONFIG_MAX_RATING);
+            ConfigQuery::write('comment_max_rating', self::CONFIG_MAX_RATING);
         }
 
         // Schema
         if (!self::getConfigValue('is_initialized', false)) {
             $database = new Database($con);
-            $database->insertSql(null, [__DIR__ . DS . 'Config' . DS . 'thelia.sql']);
+            $database->insertSql(null, [__DIR__.DS.'Config'.DS.'thelia.sql']);
             self::setConfigValue('is_initialized', true);
         }
 
         // A shop installed before the current schema needs what thelia.sql only gives to a
         // first activation. Does nothing when the table is already up to date.
         (new CommentSchemaUpgrade())->apply($con);
+        // A shop that installed the module before this index existed never replays thelia.sql.
+        $this->createRefStatusIndex($con);
 
         $languages = LangQuery::create()->find();
         $this->loadEmailTranslations($languages);
@@ -192,6 +193,37 @@ class Comment extends BaseModule
         $this->loadEmailTranslations($languages);
 
         $this->repairMessageSubjects($languages);
+
+        $this->createRefStatusIndex($con);
+    }
+
+    /**
+     * Index the three equality predicates of an aggregate read on a target's comments.
+     *
+     * The module ships its schema as Config/thelia.sql, which postActivation() applies once and
+     * never replays, and it has no Config/TheliaMain.sql, so Config/update/*.sql is never read
+     * either (Thelia\Install\Standalone\DatabaseSetup returns before the update directory when
+     * the main file is missing). An existing shop therefore only ever gets this index from here.
+     *
+     * MySQL has no CREATE INDEX IF NOT EXISTS, and the statement is not idempotent: the index is
+     * looked up first rather than creating it and swallowing the error, so a real failure still
+     * surfaces.
+     */
+    private function createRefStatusIndex(?ConnectionInterface $con = null): void
+    {
+        $con ??= Propel::getConnection();
+
+        $statement = $con->prepare(
+            'SELECT COUNT(*) FROM information_schema.statistics '
+            .'WHERE table_schema = DATABASE() AND table_name = :table AND index_name = :index'
+        );
+        $statement->execute(['table' => 'comment', 'index' => 'idx_comment_ref_status']);
+
+        if (0 < (int) $statement->fetchColumn()) {
+            return;
+        }
+
+        $con->exec('CREATE INDEX `idx_comment_ref_status` ON `comment` (`ref`, `ref_id`, `status`)');
     }
 
     /**
@@ -302,26 +334,26 @@ class Comment extends BaseModule
     {
         $config = [
             'activated' => (
-                (int)ConfigQuery::read('comment_activated', self::CONFIG_ACTIVATED) === 1
+                (int) ConfigQuery::read('comment_activated', self::CONFIG_ACTIVATED) === 1
             ),
             'moderate' => (
-                (int)ConfigQuery::read('comment_moderate', self::CONFIG_MODERATE) === 1
+                (int) ConfigQuery::read('comment_moderate', self::CONFIG_MODERATE) === 1
             ),
             'ref_allowed' => explode(
                 ',',
                 ConfigQuery::read('comment_ref_allowed', self::CONFIG_REF_ALLOWED)
             ),
             'only_customer' => (
-                (int)ConfigQuery::read('comment_only_customer', self::CONFIG_ONLY_CUSTOMER) === 1
+                (int) ConfigQuery::read('comment_only_customer', self::CONFIG_ONLY_CUSTOMER) === 1
             ),
             'only_verified' => (
-                (int)ConfigQuery::read('comment_only_verified', self::CONFIG_ONLY_VERIFIED) === 1
+                (int) ConfigQuery::read('comment_only_verified', self::CONFIG_ONLY_VERIFIED) === 1
             ),
             'request_customer_ttl' => (
-                (int)ConfigQuery::read('comment_request_customer_ttl', self::CONFIG_REQUEST_CUSTOMMER_TTL)
+                (int) ConfigQuery::read('comment_request_customer_ttl', self::CONFIG_REQUEST_CUSTOMMER_TTL)
             ),
             'notify_admin_new_comment' => (
-                (int)ConfigQuery::read('comment_notify_admin_new_comment', self::CONFIG_NOTIFY_ADMIN_NEW_COMMENT)
+                (int) ConfigQuery::read('comment_notify_admin_new_comment', self::CONFIG_NOTIFY_ADMIN_NEW_COMMENT)
                     === 1
             ),
             // The maximum rating is a scale (5 by default), not a flag: comparing it to 1

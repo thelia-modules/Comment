@@ -30,6 +30,7 @@ CREATE TABLE `comment`
     INDEX `idx_comment_user_id` (`customer_id`),
     INDEX `idx_comment_ref` (`ref`, `ref_id`),
     INDEX `idx_comment_status` (`status`),
+    INDEX `idx_comment_ref_status` (`ref`, `ref_id`, `status`),
     CONSTRAINT `fk_comment_customer_id`
         FOREIGN KEY (`customer_id`)
         REFERENCES `customer` (`id`)
