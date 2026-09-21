@@ -15,15 +15,17 @@ declare(strict_types=1);
 namespace Comment\Api\Filter;
 
 use ApiPlatform\Metadata\Operation;
-use Comment\Api\Resource\CommentRating;
+use Comment\Service\Api\RatingMetaMemo;
 use Propel\Runtime\ActiveQuery\ModelCriteria;
 use Thelia\Api\Bridge\Propel\Filter\AbstractFilter;
 use Thelia\Api\Bridge\Propel\Filter\OrderFilter;
+use Thelia\Model\Map\ProductTableMap;
+use Thelia\Model\MetaData;
 
 /**
  * Sorts the public product collection on the average rating, with "order[rating]=asc|desc".
  *
- * Reaches the collection through Comment\Api\Mutator\ProductFrontCollectionMutator rather than
+ * Reaches the collection through Comment\Api\Mutator\ProductRatingOrderMutator rather than
  * an ApiFilter attribute: the resource belongs to the core, which must keep working with this
  * module uninstalled.
  *
@@ -53,13 +55,16 @@ class ProductRatingOrderFilter extends AbstractFilter
             return;
         }
 
-        // The very expression the payload exposes as CommentRating.ratingAverage, so what the
-        // visitor sorts by is what the card shows.
-        $sortKey = CommentRating::averageExpression();
+        // The stored average, which is the very figure the payload exposes as
+        // CommentRating.ratingAverage: what the visitor sorts by is what the card shows.
+        $sortKey = RatingMetaMemo::averageExpression(
+            MetaData::PRODUCT_KEY,
+            ProductTableMap::COL_ID,
+        );
 
-        // Unrated products keep a NULL sort key: send them last in both directions.
-        // The expression carries its own parentheses, and ISNULL() needs a parenthesized
-        // subquery of its own: ISNULL(SELECT ...) is a syntax error.
+        // A product nobody rated has no row at all, so the subquery answers NULL: send those
+        // last in both directions. The expression carries its own parentheses, which ISNULL()
+        // needs -- ISNULL(SELECT ...) is a syntax error.
         $query->addAscendingOrderByColumn('ISNULL('.$sortKey.')');
 
         if (OrderFilter::DIRECTION_ASC === $direction) {
