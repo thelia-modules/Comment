@@ -370,7 +370,7 @@ class CommentController extends AbstractCrudController
 
         // Accepting a comment publishes it on the shop: the same guard as deleteAction, so the
         // request cannot be forged from another site and answered by a passing administrator.
-        $tokenProvider->checkToken((string) $request->query->get('_token', ''));
+        $tokenProvider->checkRequestToken($request);
 
         $message = [
             "success" => false,
@@ -456,7 +456,7 @@ class CommentController extends AbstractCrudController
 
         $request = $this->getRequest();
 
-        $tokenProvider->checkToken((string) $request->query->get('_token', ''));
+        $tokenProvider->checkRequestToken($request);
 
         $message = [
             "success" => false,
@@ -580,7 +580,7 @@ class CommentController extends AbstractCrudController
         );
     }
 
-    #[Route('/comment/request-customer', name: '_request-customer', methods: ['GET'])]
+    #[Route('/comment/request-customer', name: '_request-customer', methods: ['POST'])]
     public function requestCustomerCommentAction(
         EventDispatcherInterface $eventDispatcher,
         Request $request,
@@ -591,7 +591,7 @@ class CommentController extends AbstractCrudController
             return $response;
         }
 
-        $tokenProvider->checkToken((string) $request->query->get('_token', ''));
+        $tokenProvider->checkRequestToken($request);
 
         try {
             $eventDispatcher->dispatch(

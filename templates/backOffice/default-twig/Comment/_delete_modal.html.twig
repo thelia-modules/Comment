@@ -1,7 +1,8 @@
-{# Delete confirmation. The action validates the CSRF token from the query string, hence token_url(). #}
+{# Delete confirmation. The CSRF token travels in the form body. #}
 <div class="modal fade" id="comment-delete-modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
-        <form method="POST" action="{{ token_url('comment_module_delete') }}" class="modal-content">
+        <form method="POST" action="{{ path('comment_module_delete') }}" class="modal-content">
+            <input type="hidden" name="_token" value="{{ assignToken() }}">
             <div class="modal-header">
                 <h5 class="modal-title">{{ 'Delete comment'|trans({}, 'comment.bo.default') }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'Close'|trans }}"></button>
