@@ -2,7 +2,7 @@
     <div class="col-md-12">
         <h4 class="h5">{{ 'Comments activation.'|trans({}, 'comment.bo.default') }}</h4>
 
-        <div class="mb-4" data-comment-activation="{{ token_url('comment_module_activation', {ref: ref, refId: id}) }}">
+        <div class="mb-4" data-comment-activation="{{ path('comment_module_activation', {ref: ref, refId: id}) }}" data-token="{{ assignToken() }}">
             <label for="comment-activation-status" class="form-label">
                 {{ 'Status :'|trans({}, 'comment.bo.default') }}
             </label>
@@ -52,6 +52,7 @@
         container.querySelector('[data-comment-activation-save]').addEventListener('click', function () {
             const body = new FormData();
             body.append('status', select.value);
+            body.append('_token', container.dataset.token);
 
             fetch(container.dataset.commentActivation, {method: 'POST', body: body, credentials: 'same-origin'})
                 .then(function (response) { return response.json(); })

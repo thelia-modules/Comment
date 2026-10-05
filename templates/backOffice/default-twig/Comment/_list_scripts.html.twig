@@ -6,14 +6,16 @@
 #}
 <script>
     (function () {
-        {# token_url(), like the delete modal: the action validates the _token from the query string. #}
-        const statusUrl = {{ token_url('comment_module_status')|json_encode|raw }};
+        {# The action validates the _token from the request body, like the delete modal. #}
+        const statusUrl = {{ path('comment_module_status')|json_encode|raw }};
+        const statusToken = {{ assignToken()|json_encode|raw }};
 
         document.querySelectorAll('[data-comment-status-change]').forEach(function (button) {
             button.addEventListener('click', function () {
                 const body = new FormData();
                 body.append('id', button.dataset.commentId);
                 body.append('status', button.dataset.commentStatus);
+                body.append('_token', statusToken);
 
                 fetch(statusUrl, {method: 'POST', body: body, credentials: 'same-origin'})
                     .then(function (response) { return response.json(); })
