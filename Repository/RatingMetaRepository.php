@@ -32,4 +32,26 @@ final readonly class RatingMetaRepository implements RatingMetaStorageInterface
             ->filterByElementId($refId)
             ->delete();
     }
+
+    /**
+     * Compares the stored average with the cast RatingMetaMemo::averageExpression() orders on,
+     * so that the rating facet and the best-rated order read the same figure.
+     */
+    public function elementIdsRatedAtLeast(string $ref, float $minimumAverage, ?array $amongIds = null): array
+    {
+        $query = MetaDataQuery::create()
+            ->filterByMetaKey(Comment::META_KEY_RATING)
+            ->filterByElementKey($ref)
+            ->where('CAST(MetaData.Value AS DECIMAL(10, 2)) >= ?', (string) $minimumAverage, \PDO::PARAM_STR);
+
+        if ($amongIds !== null) {
+            if ($amongIds === []) {
+                return [];
+            }
+
+            $query->filterByElementId($amongIds, Criteria::IN);
+        }
+
+        return array_map('intval', $query->select(['ElementId'])->find()->getData());
+    }
 }

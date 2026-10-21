@@ -28,4 +28,14 @@ interface RatingMetaStorageInterface
      * keeps showing an average computed from comments that are gone.
      */
     public function clear(string $ref, int $refId): void;
+
+    /**
+     * The elements of a kind whose stored average reaches $minimumAverage, on the scale the
+     * module rates on.
+     *
+     * @param list<int>|null $amongIds the elements to look at; null for every element of the kind
+     *
+     * @return list<int>
+     */
+    public function elementIdsRatedAtLeast(string $ref, float $minimumAverage, ?array $amongIds = null): array;
 }

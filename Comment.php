@@ -28,6 +28,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use Thelia\Core\Install\Database;
 use Thelia\Core\Translation\Translator;
+use Thelia\Domain\Catalog\Product\ProductRatingSourceInterface;
 use Thelia\Model\ConfigQuery;
 use Thelia\Model\Lang;
 use Thelia\Model\LangQuery;
@@ -402,7 +403,13 @@ class Comment extends BaseModule
         $servicesConfigurator->load(self::getModuleCode().'\\', __DIR__)
             // Tests/ is part of the tree load() walks: a test double implementing an
             // autoconfigured interface would otherwise be registered as a real service.
-            ->exclude([__DIR__.'/I18n/*', __DIR__.'/Tests/*'])
+            ->exclude([
+                __DIR__.'/I18n/*',
+                __DIR__.'/Tests/*',
+                // The rating facet arrived with Thelia 3.3: on an older core its interface
+                // does not exist, and the class implementing it could not be loaded.
+                ...(interface_exists(ProductRatingSourceInterface::class) ? [] : [__DIR__.'/Front/RatingFacetSource.php']),
+            ])
             ->autowire(true)
             ->autoconfigure(true);
 

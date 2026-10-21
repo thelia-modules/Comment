@@ -1,0 +1,8 @@
+# Product rating source contract of a core newer than the published one: Comment::configureServices() wires
+# Front/RatingFacetSource.php only when interface_exists() finds it. Kept out of the report so that PHPStan runs
+# against the published core; an entry the core catches up with is not reported.
+parameters:
+    # PHPStan cannot ignore a class that implements an unknown interface: the class is left out of the analysis instead (still scanned, so its name resolves).
+    excludePaths:
+        analyse:
+            - Front/RatingFacetSource.php

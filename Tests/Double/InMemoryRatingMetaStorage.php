@@ -49,4 +49,26 @@ final class InMemoryRatingMetaStorage implements RatingMetaStorageInterface
     {
         return $this->values[$ref.'|'.$refId] ?? ['average' => null, 'count' => 0];
     }
+
+    public function elementIdsRatedAtLeast(string $ref, float $minimumAverage, ?array $amongIds = null): array
+    {
+        $ids = [];
+
+        foreach ($this->values as $key => $value) {
+            [$storedRef, $refId] = explode('|', $key);
+            $refId = (int) $refId;
+
+            if ($storedRef !== $ref || $value['average'] === null || $value['average'] < $minimumAverage) {
+                continue;
+            }
+
+            if ($amongIds !== null && !\in_array($refId, $amongIds, true)) {
+                continue;
+            }
+
+            $ids[] = $refId;
+        }
+
+        return $ids;
+    }
 }
